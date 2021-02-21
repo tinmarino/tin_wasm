@@ -1,7 +1,7 @@
 [package]
-name = "without-a-bundler"
+name = "tin_wasm"
 version = "0.1.0"
-authors = ["The wasm-bindgen Developers"]
+authors = ["Tinmarino"]
 edition = "2018"
 
 [lib]
@@ -9,13 +9,24 @@ crate-type = ["cdylib"]
 
 [dependencies]
 wasm-bindgen = "0.2.70"
+js-sys = "0.3.47"  # for 3d: Float32Array
+
 
 [dependencies.web-sys]
 version = "0.3.4"
 features = [
+  'CanvasRenderingContext2d',
   'Document',
   'Element',
   'HtmlElement',
+  'HtmlCanvasElement',
   'Node',
   'Window',
+  'MouseEvent',
+  'console',
+  'CssStyleDeclaration',
+  'WebGlBuffer',
+  'WebGlRenderingContext',
+  'WebGlProgram',
+  'WebGlShader',
 ]

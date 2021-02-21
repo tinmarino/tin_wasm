@@ -1,24 +1,64 @@
 use wasm_bindgen::prelude::*;
+use wasm_bindgen::JsCast;
+extern crate web_sys;
+
+// A macro to provide `println!(..)`-style syntax for `console.log` logging.
+#[macro_export]
+macro_rules! log {
+    ( $( $t:tt )* ) => {
+        web_sys::console::log_1(&format!( $( $t )* ).into());
+    }
+}
+
+pub mod prelude;
+mod util;
+mod canvas;
+mod webgl;
 
 // Called when the wasm module is instantiated
 #[wasm_bindgen(start)]
 pub fn main() -> Result<(), JsValue> {
-    // Use `web_sys`'s global `window` function to get a handle on the global
+    // Hi
+    log!("Main rust start");
+
+    // Create page
+    let canvas = init_page();
+
+    // Draw head
+    canvas::canvas_head(canvas);
+    canvas::canvas_paint()?;
+    webgl::canvas_gl1()?;
+
+    // Bye
+    log!("Main rust end");
+    Ok(())
+}
+
+
+/// Create page -> canvas
+pub fn init_page() -> web_sys::HtmlCanvasElement {
     // window object.
     let window = web_sys::window().expect("no global `window` exists");
     let document = window.document().expect("should have a document on window");
     let body = document.body().expect("document should have a body");
 
-    // Manufacture the element we're gonna append
-    let val = document.create_element("p")?;
-    val.set_inner_html("Hello from Rust!");
+    // Manufacture paragraph
+    let p = document.create_element("p").expect("could not create a p in body");
+    p.set_inner_html("Hello Tin V0.1.1 from Rust!");
 
-    body.append_child(&val)?;
+    // Manufacture canvas 
+    let canvas = document
+        .create_element("canvas")
+        .expect("Create canvas")
+        .dyn_into::<web_sys::HtmlCanvasElement>()
+        .expect("Canvas well casted");
+    // -- Set id
+    canvas.set_id("id_canvas");
 
-    Ok(())
-}
 
-#[wasm_bindgen]
-pub fn add(a: u32, b: u32) -> u32 {
-    a + b
+    body.append_child(&p).expect("Cant append p to body");
+
+    body.append_child(&canvas).expect("Cant append canvas to body");
+
+    canvas
 }
