@@ -1,3 +1,5 @@
+var squareRotation = 0.0;
+
 function main() {
   const canvas = document.querySelector("#glCanvas");
   // Initialize the GL context
@@ -57,7 +59,23 @@ function main() {
   };
 
   const buffers = initBuffers(gl);
-  drawScene(gl, programInfo, buffers);
+  var then = 0;
+
+  // Draw the scene repeatedly
+  function render(now) {
+    now *= 0.001;  // convert to seconds
+    const deltaTime = now - then;
+    then = now;
+
+    // Draw
+    drawScene(gl, programInfo, buffers, deltaTime);
+
+    // Update
+    squareRotation += deltaTime;
+
+    requestAnimationFrame(render);
+  }
+  requestAnimationFrame(render);
 }
 
 
@@ -98,10 +116,15 @@ function drawScene(gl, programInfo, buffers) {
 
   // Now move the drawing position a bit to where we want to
   // start drawing the square.
-
   mat4.translate(modelViewMatrix,     // destination matrix
                  modelViewMatrix,     // matrix to translate
                  [-0.0, 0.0, -6.0]);  // amount to translate
+
+  // Rotate
+  mat4.rotate(modelViewMatrix,  // destination matrix
+              modelViewMatrix,  // matrix to rotate
+              squareRotation,   // amount to rotate in radians
+              [0, 0, 1]);       // axis to rotate around
 
   // Tell WebGL how to pull out the positions from the position
   // buffer into the vertexPosition attribute
