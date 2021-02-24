@@ -2,6 +2,7 @@ use std::rc::Rc;
 use wasm_bindgen::prelude::*;
 use wasm_bindgen::JsCast;
 use js_sys::WebAssembly;
+use nalgebra::{Isometry3, Perspective3, Point3, Vector3, Matrix4};
 
 use web_sys::{
     console,
@@ -9,6 +10,8 @@ use web_sys::{
     WebGlProgram,
     WebGlShader,
     WebGlTexture,
+    WebGlBuffer,
+    WebGlUniformLocation,
 };
 use web_sys::WebGlRenderingContext as GL;
 
@@ -21,15 +24,26 @@ pub struct ProgramInfo {
     pub aVertexNormal: i32,
     pub aTextureCoord: i32,
 
-    pub uProjectionMatrix: i32,
-    pub uModelViewMatrix: i32,
-    pub uNormalMatrix: i32,
-    pub uSampler: i32,
+    pub uProjectionMatrix: WebGlUniformLocation,
+    pub uModelViewMatrix: WebGlUniformLocation,
+    pub uNormalMatrix: WebGlUniformLocation,
+    pub uSampler: WebGlUniformLocation,
 }
 
+/// Matrix 3D (9 comp) -> 4D (16 comp)
+/// From: webgl water tut: src/app/store/camera.rs
+/// Cannot really fail
+//#[allow(dead_code)]
+//pub fn mat_to_array(mat: &Matrix4<f32>) -> [f32; 16] {
+//    let mut mat4 = [0.; 16];
+//    mat4.copy_from_slice(mat4.as_slice());
+//    mat4
+//}
+
+
 /// Bufferise
-///
-pub fn buffer_f32_data(gl: &GL, program: &WebGlProgram, data: &[f32], attribute_name: &str, size: usize) {
+/// size: A GLint specifying the number of components per vertex attribute. Must be 1, 2, 3, or 4.
+pub fn buffer_f32_data(gl: &GL, program: &WebGlProgram, data: &[f32], attribute_name: &str, size: usize) -> Result<WebGlBuffer, JsValue> {
     // Get attribute (alias GlSl variable) handle
     let attrib: u32 = gl.get_attrib_location(&program, attribute_name) as u32;
 
@@ -50,9 +64,10 @@ pub fn buffer_f32_data(gl: &GL, program: &WebGlProgram, data: &[f32], attribute_
     gl.bind_buffer(GL::ARRAY_BUFFER, Some(&buffer));
     gl.buffer_data_with_array_buffer_view(GL::ARRAY_BUFFER, &data_array, GL::STATIC_DRAW);
     gl.vertex_attrib_pointer_with_i32(attrib, size as i32, GL::FLOAT, false, 0 as i32, 0 as i32);
+    Ok(buffer)
 }
 
-pub fn buffer_u16_indices(gl: &GL, indices: &[u16]) {
+pub fn buffer_u16_indices(gl: &GL, indices: &[u16]) -> Result<WebGlBuffer, JsValue> {
     let memory_buffer = wasm_bindgen::memory()
         .dyn_into::<WebAssembly::Memory>()
         .unwrap()
@@ -69,6 +84,7 @@ pub fn buffer_u16_indices(gl: &GL, indices: &[u16]) {
         &indices_array,
         GL::STATIC_DRAW,
     );
+    Ok(index_buffer)
 }
 
 
@@ -206,12 +222,15 @@ pub fn load_texture(
                 &img,
             ) {
                 // TODO better error handling...
-                console::log_1(&e);
+                console::log_2(&"Could not load Texture, see following erroa:r".into(), &e);
                 return;
             }
 
+            gl.tex_parameteri(GL::TEXTURE_2D as u32, GL::TEXTURE_WRAP_S as u32, GL::CLAMP_TO_EDGE as i32);
+            gl.tex_parameteri(GL::TEXTURE_2D as u32, GL::TEXTURE_WRAP_T as u32, GL::CLAMP_TO_EDGE as i32);
+            gl.tex_parameteri(GL::TEXTURE_2D as u32, GL::TEXTURE_MIN_FILTER as u32, GL::LINEAR as i32);
             // different from webgl1 where we need the pic to be power of 2
-            gl.generate_mipmap(GL::TEXTURE_2D);
+            //gl.generate_mipmap(GL::TEXTURE_2D);
         }) as Box<dyn FnMut()>);
         imgrc.set_onload(Some(a.as_ref().unchecked_ref()));
 

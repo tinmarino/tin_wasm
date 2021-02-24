@@ -28,7 +28,7 @@ pub fn main() -> Result<(), JsValue> {
     // Draw head
     //canvas::canvas_head(canvas);
     //canvas::canvas_paint()?;
-    webgl::canvas_gl1()?;
+    webgl::canvas_gl2()?;
 
     // Bye
     log!("Main rust end");

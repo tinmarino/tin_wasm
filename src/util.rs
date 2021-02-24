@@ -10,8 +10,8 @@ pub fn create_canvas(id: &str) -> Result<web_sys::HtmlCanvasElement, JsValue>{
         .dyn_into::<web_sys::HtmlCanvasElement>()
         .expect("Failed at casting canvas to a rust type");
     document.body().unwrap().append_child(&canvas)?;
-    canvas.set_width(640);
-    canvas.set_height(480);
+    canvas.set_width(800);
+    canvas.set_height(800);
     canvas.set_id(id);
     log!("Drawing paint");
     canvas.style().set_property("border", "solid")?;
