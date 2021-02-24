@@ -59,6 +59,7 @@ pub fn canvas_paint() -> Result<(), JsValue> {
 
 /// Draw head into canvas
 /// From: https://rustwasm.github.io/wasm-bindgen/examples/2d-canvas.html
+#[allow(dead_code)]
 pub fn canvas_head(canvas: web_sys::HtmlCanvasElement) {
     let context: web_sys::CanvasRenderingContext2d = canvas
         .get_context("2d")

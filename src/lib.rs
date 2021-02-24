@@ -12,6 +12,7 @@ macro_rules! log {
 
 pub mod prelude;
 mod util;
+mod util_gl;
 mod canvas;
 mod webgl;
 
@@ -22,11 +23,11 @@ pub fn main() -> Result<(), JsValue> {
     log!("Main rust start");
 
     // Create page
-    let canvas = init_page();
+    //let canvas = init_page();
 
     // Draw head
-    canvas::canvas_head(canvas);
-    canvas::canvas_paint()?;
+    //canvas::canvas_head(canvas);
+    //canvas::canvas_paint()?;
     webgl::canvas_gl1()?;
 
     // Bye
