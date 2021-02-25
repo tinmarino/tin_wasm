@@ -2,7 +2,7 @@ use std::rc::Rc;
 use wasm_bindgen::prelude::*;
 use wasm_bindgen::JsCast;
 use js_sys::WebAssembly;
-use nalgebra::{Isometry3, Perspective3, Point3, Vector3, Matrix4};
+//use nalgebra::{Isometry3, Perspective3, Point3, Vector3, Matrix4};
 
 use web_sys::{
     console,
@@ -20,14 +20,14 @@ use web_sys::WebGlRenderingContext as GL;
 pub struct ProgramInfo {
     // I own the stuff and ciao bambino
     pub program: WebGlProgram,
-    pub aVertexPosition: i32,
-    pub aVertexNormal: i32,
-    pub aTextureCoord: i32,
+    pub a_vertex_position: i32,
+    pub a_vertex_normal: i32,
+    pub a_texture_coord: i32,
 
-    pub uProjectionMatrix: WebGlUniformLocation,
-    pub uModelViewMatrix: WebGlUniformLocation,
-    pub uNormalMatrix: WebGlUniformLocation,
-    pub uSampler: WebGlUniformLocation,
+    pub u_projection_matrix: WebGlUniformLocation,
+    pub u_model_view_matrix: WebGlUniformLocation,
+    pub u_normal_matrix: WebGlUniformLocation,
+    pub u_sampler: WebGlUniformLocation,
 }
 
 /// Matrix 3D (9 comp) -> 4D (16 comp)

@@ -10,9 +10,9 @@ use web_sys::{
     WebGlProgram,
     WebGlTexture,
     WebGlBuffer,
-    WebGlUniformLocation,
+    //WebGlUniformLocation,
 };
-use nalgebra::{Isometry3, Perspective3, Point3, Vector3};
+use nalgebra::{ Isometry3, Perspective3, Vector3 };
 
 use crate::util::*;
 use crate::util_gl::{
@@ -63,20 +63,21 @@ pub fn canvas_gl2() -> Result<(), JsValue> {
     // Set program fields
     let buffers = init_buffers(&gl, &program)
         .expect("Init buffers");
-    //let texture = load_texture(&gl, "blue.png")
-    let texture = load_texture(&gl, "noble_rat_460.png")
+    let texture = load_texture(&gl, "blue.png")
+    //let texture = load_texture(&gl, "noble_rat_460.png")
         .expect("Failed: load texture");
 
     // Explicity retrieve fields <- WebGl compile shaders -> int
     let program_info = ProgramInfo {
-        aVertexPosition: gl.get_attrib_location(&program, "aVertexPosition"),
-        aVertexNormal: gl.get_attrib_location(&program, "aVertexNormal"),
-        aTextureCoord: gl.get_attrib_location(&program, "aTextureCoord"),
+        a_vertex_position: gl.get_attrib_location(&program, "aVertexPosition"),
+        a_vertex_normal: gl.get_attrib_location(&program, "aVertexNormal"),
+        a_texture_coord: gl.get_attrib_location(&program, "aTextureCoord"),
 
-        uProjectionMatrix: gl.get_uniform_location(&program, "uProjectionMatrix").unwrap(),
-        uModelViewMatrix: gl.get_uniform_location(&program, "uModelViewMatrix").unwrap(),
-        uNormalMatrix: gl.get_uniform_location(&program, "uNormalMatrix").unwrap(),
-        uSampler: gl.get_uniform_location(&program, "uSampler").unwrap(),
+        u_projection_matrix: gl.get_uniform_location(&program, "uProjectionMatrix").unwrap(),
+        u_model_view_matrix: gl.get_uniform_location(&program, "uModelViewMatrix").unwrap(),
+        u_normal_matrix: gl.get_uniform_location(&program, "uNormalMatrix").unwrap(),
+        u_sampler: gl.get_uniform_location(&program, "uSampler").unwrap(),
+        // Pass me at the end so that I can keep owning it
         program: program,
     };
 
@@ -88,16 +89,16 @@ pub fn canvas_gl2() -> Result<(), JsValue> {
     let mut state = State {
         cube_rotation: 0.0,
     };
-    let mut now: f32 = 0.0;
-    let mut then: f32 = 0.0;
+    //let mut now: f32 = 0.0;
+    //let mut then: f32 = 0.0;
     *g.borrow_mut() = Some(Closure::wrap(Box::new(move || {
-        now *= 0.001;  // convert to seconds
-        let delta_time = 0.060;
+        //now *= 0.001;  // convert to seconds
+        let delta_time = 0.010;
         //let delta_time = now - then;
-        then = now;
+        //then = now;
 
         // Draw
-        draw_scene(&gl, &program_info, &texture, &buffers, &mut state, delta_time);
+        draw_scene(&gl, &program_info, &texture, &buffers, &mut state, delta_time).unwrap();
 
         request_animation_frame(f.borrow().as_ref().unwrap());
     }) as Box<dyn FnMut()>));
@@ -131,24 +132,23 @@ pub fn draw_scene(
     // Tell WebGL how to pull out the positions from the position
     // buffer into the vertexPosition attribute
     {
-        let numComponents = 3;  // 3d for position
+        let num = 3;  // 3d for position
         let typ = GL::FLOAT;
         let normalize = false;
         let stride = 0;
         let offset = 0;
-        // TODO
         gl.bind_buffer(GL::ARRAY_BUFFER, Some(&buffers.position));
         gl.vertex_attrib_pointer_with_i32(
-                program_info.aVertexPosition as u32,
-                numComponents,
+                program_info.a_vertex_position as u32,
+                num,
                 typ,
                 normalize,
                 stride,
                 offset);
-        gl.enable_vertex_attrib_array(program_info.aVertexPosition as u32);
+        gl.enable_vertex_attrib_array(program_info.a_vertex_position as u32);
     }
 
-    // tell webgl how to pull out the texture coordinates from buffer
+    // Tell webgl how to pull out the texture coordinates from buffer
     {
         let num = 2; // every coordinate composed of 2 values
         let typ = GL::FLOAT; // the data in the buffer is 32 bit float
@@ -157,9 +157,9 @@ pub fn draw_scene(
         let offset = 0; // how many bytes inside the buffer to start from
         gl.bind_buffer(GL::ARRAY_BUFFER, Some(&buffers.texture_coord));
         gl.vertex_attrib_pointer_with_i32(
-            program_info.aTextureCoord as u32,
+            program_info.a_texture_coord as u32,
             num, typ, normalize, stride, offset);
-        gl.enable_vertex_attrib_array(program_info.aTextureCoord as u32);
+        gl.enable_vertex_attrib_array(program_info.a_texture_coord as u32);
     }
 
     // Tell WebGL how to pull out the normals from
@@ -172,9 +172,9 @@ pub fn draw_scene(
         let offset = 0;
         gl.bind_buffer(GL::ARRAY_BUFFER, Some(&buffers.normal));
         gl.vertex_attrib_pointer_with_i32(
-                program_info.aVertexNormal as u32,
+                program_info.a_vertex_normal as u32,
                 num, typ, normalize, stride, offset);
-        gl.enable_vertex_attrib_array(program_info.aVertexNormal as u32);
+        gl.enable_vertex_attrib_array(program_info.a_vertex_normal as u32);
     }
 
     // Create a perspective matrix, a special matrix that is
@@ -189,7 +189,7 @@ pub fn draw_scene(
     let far = 100.0;
     let perspective: Perspective3<f32> = Perspective3::new(fov, aspect, near, far);
     let mat_projection = perspective.as_matrix().as_slice();
-    let msg: &str = &*format!("{:?}", mat_projection);
+    //let msg: &str = &*format!("{:?}", mat_projection);
     //console::log_1(&msg.into());
 
     // Update
@@ -207,52 +207,54 @@ pub fn draw_scene(
 
     // Set the drawing position to the "identity" point, which is
     // the center of the scene.
-    let iso = Isometry3::new(
+    let model = Isometry3::new(
         // Translate
         Vector3::new(-0.0, 0.0, -6.0),
         // Rotate
-        Vector3::new(0.0, 1.0, 1.0).scale(state.cube_rotation),
+        Vector3::new(0.2, 0.7, 0.3).scale(state.cube_rotation),
     );
-    let mut mat_model = [0.; 16];
-    let mat_model = iso.to_homogeneous();
-    let mat_model = mat_model.as_slice();
-    let msg: &str = &*format!("{:?}", iso);
+    let model4 = model.to_homogeneous();
+    let mat_model = model4.as_slice();
 
-    console::log_2(&"Model:".into(), &msg.into());
+    //let msg: &str = &*format!("{:?}", iso);
+    //console::log_2(&"Model:".into(), &msg.into());
 
-    let msg: &str = &*format!("{:?}", state.cube_rotation);
-    console::log_2(&"Rotation:".into(), &msg.into());
-    let msg: &str = &*format!("{:?}", delta_time);
-    console::log_2(&"delta:".into(), &msg.into());
+    //let msg: &str = &*format!("{:?}", state.cube_rotation);
+    //console::log_2(&"Rotation:".into(), &msg.into());
+    //let msg: &str = &*format!("{:?}", delta_time);
+    //console::log_2(&"delta:".into(), &msg.into());
 
 
+    // TODO
+    let mut norm = model.clone();
+    norm.inverse_mut();
+    let mut norm4 = norm.to_homogeneous();
+    norm4.transpose_mut();
+    //let mat_norm = norm4.to_homogeneous();
+    let mat_norm = norm4.as_slice();
+    //let msg: &str = &*format!("Norm: {:?}", mat_norm);
+    //console::log_2(&"Norm:".into(), &msg.into());
     //const normalMatrix = mat4.create();
     //mat4.invert(normalMatrix, modelViewMatrix);
     //mat4.transpose(normalMatrix, normalMatrix);
 
     //// Tell WebGL to use our program when drawing
     gl.use_program(Some(&program_info.program));
-    let unity = [
-        1.0, 0.0, 0.0, 0.0,
-        0.0, 1.0, 0.0, 0.0,
-        0.0, 0.0, 1.0, 0.0,
-        0.0, 0.0, 0.0, 1.0,
-    ];
 
     // Set the shader uniforms
     // TODO need math
     gl.uniform_matrix4fv_with_f32_array(
-            Some(&program_info.uProjectionMatrix),
+            Some(&program_info.u_projection_matrix),
             false,
             &mat_projection);
     gl.uniform_matrix4fv_with_f32_array(
-            Some(&program_info.uModelViewMatrix),
+            Some(&program_info.u_model_view_matrix),
             false,
             &mat_model);
     gl.uniform_matrix4fv_with_f32_array(
-            Some(&program_info.uNormalMatrix),
+            Some(&program_info.u_normal_matrix),
             false,
-            &unity);
+            &mat_norm);
 
     // Tell WebGL which indices to use to index the vertices
     gl.bind_buffer(GL::ELEMENT_ARRAY_BUFFER, Some(&buffers.indice));
@@ -265,20 +267,19 @@ pub fn draw_scene(
 
     // DRAW !
     // Tell the shader we bound the texture to texture unit 0
-    gl.uniform1i(Some(&program_info.uSampler), 0);
+    gl.uniform1i(Some(&program_info.u_sampler), 0);
     {
-        let vertexCount = 36;
+        let vertex_count = 36;
         let typ = GL::UNSIGNED_SHORT;
         let offset = 0;
-        gl.draw_elements_with_i32(GL::TRIANGLES, vertexCount, typ, offset);
+        gl.draw_elements_with_i32(GL::TRIANGLES, vertex_count, typ, offset);
     }
 
-    //mat4.rotate(modelViewMatrix, modelViewMatrix, cubeRotation * .7, [0, 1, 0]);
     Ok(())
 }
 
 #[allow(dead_code)]
-pub fn init_buffers(gl: &GL, program: &WebGlProgram) -> Result<(Buffers), JsValue> {
+pub fn init_buffers(gl: &GL, program: &WebGlProgram) -> Result<Buffers, JsValue> {
     // Now create an array of positions for the square.
     let positions = [
         // Front face
