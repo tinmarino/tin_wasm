@@ -474,4 +474,3 @@ pub fn canvas_gl1() -> Result<(), JsValue> {
     );
     Ok(())
 }
-
