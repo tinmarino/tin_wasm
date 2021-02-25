@@ -53,7 +53,7 @@ pub fn canvas_gl2() -> Result<(), JsValue> {
         .dyn_into::<GL>()?;
 
     // Set clear color to black, fully opaque
-    gl.clear_color(0.0, 0.0, 0.5, 1.0);
+    gl.clear_color(0.0, 0.0, 0.0, 1.0);
     // Clear the color buffer with specified clear color
     gl.clear(GL::COLOR_BUFFER_BIT);
 
@@ -63,6 +63,7 @@ pub fn canvas_gl2() -> Result<(), JsValue> {
     // Set program fields
     let buffers = init_buffers(&gl, &program)
         .expect("Init buffers");
+    //let texture = load_texture(&gl, "blue.png")
     let texture = load_texture(&gl, "noble_rat_460.png")
         .expect("Failed: load texture");
 
@@ -70,7 +71,7 @@ pub fn canvas_gl2() -> Result<(), JsValue> {
     let program_info = ProgramInfo {
         aVertexPosition: gl.get_attrib_location(&program, "aVertexPosition"),
         aVertexNormal: gl.get_attrib_location(&program, "aVertexNormal"),
-        aTextureCoord: gl.get_attrib_location(&program, "aVertexCoord"),
+        aTextureCoord: gl.get_attrib_location(&program, "aTextureCoord"),
 
         uProjectionMatrix: gl.get_uniform_location(&program, "uProjectionMatrix").unwrap(),
         uModelViewMatrix: gl.get_uniform_location(&program, "uModelViewMatrix").unwrap(),
@@ -91,7 +92,8 @@ pub fn canvas_gl2() -> Result<(), JsValue> {
     let mut then: f32 = 0.0;
     *g.borrow_mut() = Some(Closure::wrap(Box::new(move || {
         now *= 0.001;  // convert to seconds
-        let delta_time = now - then;
+        let delta_time = 0.060;
+        //let delta_time = now - then;
         then = now;
 
         // Draw
@@ -116,7 +118,7 @@ pub fn draw_scene(
     delta_time : f32,
 ) -> Result<(), JsValue> {
     // Hi
-    web_sys::console::log_1(&"Drawing".into());
+    //web_sys::console::log_1(&"Drawing".into());
 
     // Clear
     gl.clear_color(0.3, 0.3, 0.3, 1.0);  // Clear to black, fully opaque
@@ -188,29 +190,40 @@ pub fn draw_scene(
     let perspective: Perspective3<f32> = Perspective3::new(fov, aspect, near, far);
     let mat_projection = perspective.as_matrix().as_slice();
     let msg: &str = &*format!("{:?}", mat_projection);
-    console::log_1(&msg.into());
+    //console::log_1(&msg.into());
 
     // Update
     // The current rotation angle
     state.cube_rotation += delta_time;
 
-    let mat_model = [
-        1.0, 0.0,  0.0, 0.0,
-        0.0, 1.0,  0.0, 0.0,
-        0.0, 0.0,  1.0, 0.0,
-        0.0, 0.0, -6.0, 1.0,];
+    //// OK now
+    //let mat_model = [
+    //    1.0, 0.0,  0.0, 0.0,
+    //    0.0, 1.0,  0.0, 0.0,
+    //    0.0, 0.0,  1.0, 0.0,
+    //    0.0, 0.0, -6.0, 1.0,];
 
-    //// Set the drawing position to the "identity" point, which is
-    //// the center of the scene.
-    //let iso = Isometry3::new(
-    //    // Translate
-    //    Vector3::new(-0.0, 0.0, 6.0),
-    //    // Rotate
-    //    Vector3::new(0.0, 1.0, 1.0).scale(state.cube_rotation),
-    //);
-    //let mut mat_model = [0.; 16];
-    //let mat_model = iso.to_homogeneous();
-    //let mat_model = mat_model.as_slice();
+    //let mat4 = Identity3.new();
+
+    // Set the drawing position to the "identity" point, which is
+    // the center of the scene.
+    let iso = Isometry3::new(
+        // Translate
+        Vector3::new(-0.0, 0.0, -6.0),
+        // Rotate
+        Vector3::new(0.0, 1.0, 1.0).scale(state.cube_rotation),
+    );
+    let mut mat_model = [0.; 16];
+    let mat_model = iso.to_homogeneous();
+    let mat_model = mat_model.as_slice();
+    let msg: &str = &*format!("{:?}", iso);
+
+    console::log_2(&"Model:".into(), &msg.into());
+
+    let msg: &str = &*format!("{:?}", state.cube_rotation);
+    console::log_2(&"Rotation:".into(), &msg.into());
+    let msg: &str = &*format!("{:?}", delta_time);
+    console::log_2(&"delta:".into(), &msg.into());
 
 
     //const normalMatrix = mat4.create();
