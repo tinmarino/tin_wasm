@@ -1,4 +1,5 @@
-// From: https://rustwasm.github.io/wasm-bindgen/examples/webgl.html
+/// From: Javascript: https://developer.mozilla.org/en-US/docs/Web/API/WebGL_API/Tutorial
+/// Log with: console::log_1(&(&*format!("Now {:?}", now) as &str).into());
 use std::rc::Rc;
 use std::cell::RefCell;
 
@@ -31,6 +32,7 @@ fn request_animation_frame(f: &Closure<dyn FnMut()>) {
 }
 
 
+/// Just a single container to keep our arrays
 pub struct Buffers {
     position: WebGlBuffer,
     normal: WebGlBuffer,
@@ -38,6 +40,7 @@ pub struct Buffers {
     indice: WebGlBuffer,
 }
 
+/// Other single container, track changes
 pub struct State {
     cube_rotation: f32,
 }
@@ -57,9 +60,9 @@ pub fn canvas_gl2() -> Result<(), JsValue> {
     // Clear the color buffer with specified clear color
     gl.clear(GL::COLOR_BUFFER_BIT);
 
+    // Init program <- Vertex strings
     let program: WebGlProgram = init_program(&gl, VERTEX_SHADER, FRAGMENT_SHADER)
         .expect("Failed at init_program");
-
     // Set program fields
     let buffers = init_buffers(&gl, &program)
         .expect("Init buffers");
@@ -81,26 +84,38 @@ pub fn canvas_gl2() -> Result<(), JsValue> {
         program: program,
     };
 
+    let mut state = State {
+        cube_rotation: 0.0,
+    };
+
     // Render loop
     // Dont ask me
     let f = Rc::new(RefCell::new(None));
     let g = f.clone();
-
-    let mut state = State {
-        cube_rotation: 0.0,
-    };
-    //let mut now: f32 = 0.0;
-    //let mut then: f32 = 0.0;
+    const FPS_THROTTLE: f64 = 1000.0 / 60.0; // milliseconds / frames
+    let mut previous: f64 = js_sys::Date::now();
     *g.borrow_mut() = Some(Closure::wrap(Box::new(move || {
-        //now *= 0.001;  // convert to seconds
-        let delta_time = 0.010;
-        //let delta_time = now - then;
-        //then = now;
+        request_animation_frame(f.borrow().as_ref().unwrap());
+
+        // Get time (miliseconds)
+        let now = js_sys::Date::now();
+
+        // Clause: must work or sleeep ?
+        // The current rotation angle 1 rad/sec
+        if now < previous + FPS_THROTTLE {
+           return ();
+        }
+
+        // Update time
+        let delta_time = now - previous;
+        previous = now;
+
+        // Update game
+        state.cube_rotation += delta_time as f32 * 0.001;
 
         // Draw
-        draw_scene(&gl, &program_info, &texture, &buffers, &mut state, delta_time).unwrap();
+        draw_scene(&gl, &program_info, &texture, &buffers, &state).unwrap();
 
-        request_animation_frame(f.borrow().as_ref().unwrap());
     }) as Box<dyn FnMut()>));
 
     console::log_1(&"Requesting animation frame".into());
@@ -115,67 +130,41 @@ pub fn draw_scene(
     program_info: &ProgramInfo,
     texture: &WebGlTexture,
     buffers: &Buffers,
-    state: &mut State,
-    delta_time : f32,
+    state: &State,
 ) -> Result<(), JsValue> {
-    // Hi
-    //web_sys::console::log_1(&"Drawing".into());
-
-    // Clear
+    // Clear the canvas before we start drawing on it.
     gl.clear_color(0.3, 0.3, 0.3, 1.0);  // Clear to black, fully opaque
     gl.clear_depth(1.0);                 // Clear everything
-    gl.enable(GL::DEPTH_TEST);           // Enable depth testing
-    gl.depth_func(GL::LEQUAL);            // Near things obscure far things
-    // Clear the canvas before we start drawing on it.
     gl.clear(GL::COLOR_BUFFER_BIT | GL::DEPTH_BUFFER_BIT);
+
+    // Enable depth shading
+    gl.enable(GL::DEPTH_TEST);             // Enable depth testing to use depth_func)
+    gl.depth_func(GL::LEQUAL);             // Near things obscure far things
 
     // Tell WebGL how to pull out the positions from the position
     // buffer into the vertexPosition attribute
-    {
-        let num = 3;  // 3d for position
-        let typ = GL::FLOAT;
-        let normalize = false;
-        let stride = 0;
-        let offset = 0;
-        gl.bind_buffer(GL::ARRAY_BUFFER, Some(&buffers.position));
-        gl.vertex_attrib_pointer_with_i32(
-                program_info.a_vertex_position as u32,
-                num,
-                typ,
-                normalize,
-                stride,
-                offset);
-        gl.enable_vertex_attrib_array(program_info.a_vertex_position as u32);
-    }
+    gl.bind_buffer(GL::ARRAY_BUFFER, Some(&buffers.position));
+    // 3D, float, normalize, stride, offset
+    gl.vertex_attrib_pointer_with_i32(
+        program_info.a_vertex_position as u32,
+        3, GL::FLOAT, false, 0, 0);
+    // If you comment the next line, you won't see anything
+    gl.enable_vertex_attrib_array(program_info.a_vertex_position as u32);
 
     // Tell webgl how to pull out the texture coordinates from buffer
-    {
-        let num = 2; // every coordinate composed of 2 values
-        let typ = GL::FLOAT; // the data in the buffer is 32 bit float
-        let normalize = false; // don't normalize
-        let stride = 0; // how many bytes to get from one set to the next
-        let offset = 0; // how many bytes inside the buffer to start from
-        gl.bind_buffer(GL::ARRAY_BUFFER, Some(&buffers.texture_coord));
-        gl.vertex_attrib_pointer_with_i32(
-            program_info.a_texture_coord as u32,
-            num, typ, normalize, stride, offset);
-        gl.enable_vertex_attrib_array(program_info.a_texture_coord as u32);
-    }
+    gl.bind_buffer(GL::ARRAY_BUFFER, Some(&buffers.texture_coord));
+    gl.vertex_attrib_pointer_with_i32(
+        program_info.a_texture_coord as u32,
+        2, GL::FLOAT, false, 0, 0);
+    gl.enable_vertex_attrib_array(program_info.a_texture_coord as u32);
 
     // Tell WebGL how to pull out the normals from
     // the normal buffer into the vertexNormal attribute.
-    {
-        let num = 3;
-        let typ = GL::FLOAT;
-        let normalize = false;
-        let stride = 0;
-        let offset = 0;
-        gl.bind_buffer(GL::ARRAY_BUFFER, Some(&buffers.normal));
-        gl.vertex_attrib_pointer_with_i32(
-                program_info.a_vertex_normal as u32,
-                num, typ, normalize, stride, offset);
-        gl.enable_vertex_attrib_array(program_info.a_vertex_normal as u32);
-    }
+    gl.bind_buffer(GL::ARRAY_BUFFER, Some(&buffers.normal));
+    gl.vertex_attrib_pointer_with_i32(
+        program_info.a_vertex_normal as u32,
+        3, GL::FLOAT, false, 0, 0);
+    gl.enable_vertex_attrib_array(program_info.a_vertex_normal as u32);
 
     // Create a perspective matrix, a special matrix that is
     // used to simulate the distortion of perspective in a camera.
@@ -183,27 +172,9 @@ pub fn draw_scene(
     // ratio that matches the display size of the canvas
     // and we only want to see objects between 0.1 units
     // and 100 units away from the camera.
-    let fov = 45.0 * 3.14 / 180.0;   // in radians
-    let aspect = 1.0; // TODO gl.canvas.clientWidth / gl.canvas.clientHeight;
-    let near = 0.1;
-    let far = 100.0;
-    let perspective: Perspective3<f32> = Perspective3::new(fov, aspect, near, far);
+    let perspective: Perspective3<f32> = Perspective3::new(
+        45.0 * 3.14 / 180.0, 1.0, 0.1, 100.0);
     let mat_projection = perspective.as_matrix().as_slice();
-    //let msg: &str = &*format!("{:?}", mat_projection);
-    //console::log_1(&msg.into());
-
-    // Update
-    // The current rotation angle
-    state.cube_rotation += delta_time;
-
-    //// OK now
-    //let mat_model = [
-    //    1.0, 0.0,  0.0, 0.0,
-    //    0.0, 1.0,  0.0, 0.0,
-    //    0.0, 0.0,  1.0, 0.0,
-    //    0.0, 0.0, -6.0, 1.0,];
-
-    //let mat4 = Identity3.new();
 
     // Set the drawing position to the "identity" point, which is
     // the center of the scene.
@@ -216,16 +187,7 @@ pub fn draw_scene(
     let model4 = model.to_homogeneous();
     let mat_model = model4.as_slice();
 
-    //let msg: &str = &*format!("{:?}", iso);
-    //console::log_2(&"Model:".into(), &msg.into());
-
-    //let msg: &str = &*format!("{:?}", state.cube_rotation);
-    //console::log_2(&"Rotation:".into(), &msg.into());
-    //let msg: &str = &*format!("{:?}", delta_time);
-    //console::log_2(&"delta:".into(), &msg.into());
-
-
-    // TODO
+    // Fill normal buffer
     let mut norm = model.clone();
     norm.inverse_mut();
     let mut norm4 = norm.to_homogeneous();
@@ -242,7 +204,6 @@ pub fn draw_scene(
     gl.use_program(Some(&program_info.program));
 
     // Set the shader uniforms
-    // TODO need math
     gl.uniform_matrix4fv_with_f32_array(
             Some(&program_info.u_projection_matrix),
             false,
@@ -268,17 +229,13 @@ pub fn draw_scene(
     // DRAW !
     // Tell the shader we bound the texture to texture unit 0
     gl.uniform1i(Some(&program_info.u_sampler), 0);
-    {
-        let vertex_count = 36;
-        let typ = GL::UNSIGNED_SHORT;
-        let offset = 0;
-        gl.draw_elements_with_i32(GL::TRIANGLES, vertex_count, typ, offset);
-    }
+    gl.draw_elements_with_i32(GL::TRIANGLES, 36, GL::UNSIGNED_SHORT, 0);
 
     Ok(())
 }
 
-#[allow(dead_code)]
+
+/// Create the vertices geographics array buffers
 pub fn init_buffers(gl: &GL, program: &WebGlProgram) -> Result<Buffers, JsValue> {
     // Now create an array of positions for the square.
     let positions = [
@@ -372,34 +329,34 @@ pub fn init_buffers(gl: &GL, program: &WebGlProgram) -> Result<Buffers, JsValue>
 
     let vertex_normals = [
         // Front
-          0.0,  0.0,  1.0,
-          0.0,  0.0,  1.0,
-          0.0,  0.0,  1.0,
-          0.0,  0.0,  1.0,
+        0.0,  0.0,  1.0,
+        0.0,  0.0,  1.0,
+        0.0,  0.0,  1.0,
+        0.0,  0.0,  1.0,
 
         // Back
-          0.0,  0.0, -1.0,
-          0.0,  0.0, -1.0,
-          0.0,  0.0, -1.0,
-          0.0,  0.0, -1.0,
+        0.0,  0.0, -1.0,
+        0.0,  0.0, -1.0,
+        0.0,  0.0, -1.0,
+        0.0,  0.0, -1.0,
 
         // Top
-          0.0,  1.0,  0.0,
-          0.0,  1.0,  0.0,
-          0.0,  1.0,  0.0,
-          0.0,  1.0,  0.0,
+        0.0,  1.0,  0.0,
+        0.0,  1.0,  0.0,
+        0.0,  1.0,  0.0,
+        0.0,  1.0,  0.0,
 
         // Bottom
-          0.0, -1.0,  0.0,
-          0.0, -1.0,  0.0,
-          0.0, -1.0,  0.0,
-          0.0, -1.0,  0.0,
+        0.0, -1.0,  0.0,
+        0.0, -1.0,  0.0,
+        0.0, -1.0,  0.0,
+        0.0, -1.0,  0.0,
 
         // Right
-          1.0,  0.0,  0.0,
-          1.0,  0.0,  0.0,
-          1.0,  0.0,  0.0,
-          1.0,  0.0,  0.0,
+        1.0,  0.0,  0.0,
+        1.0,  0.0,  0.0,
+        1.0,  0.0,  0.0,
+        1.0,  0.0,  0.0,
 
         // Left
         -1.0,  0.0,  0.0,

@@ -264,7 +264,6 @@ pub const VERTEX_SHADER: &str = r#"
       vTextureCoord = aTextureCoord;
 
       // Apply lighting effect
-
       highp vec3 ambientLight = vec3(0.2, 0.2, 0.2);
       highp vec3 directionalLightColor = vec3(1, 1, 1);
       highp vec3 directionalVector = normalize(vec3(0.85, 0.8, 0.75));
@@ -289,8 +288,6 @@ pub const FRAGMENT_SHADER: &str = r#"
       gl_FragColor = vec4(texelColor.rgb * vLighting, texelColor.a);
     }
 "#;
-
-
 
 #[allow(dead_code)]
 pub const VERT_SHADER_01 : &str = r#"
