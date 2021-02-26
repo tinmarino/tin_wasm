@@ -141,12 +141,14 @@ impl GameGl { pub fn start_loop(self) -> Result<(), JsValue> {
         previous = now;
 
         // Update game
-        let mut state = STATE.lock().unwrap();
-        console::log_1(&(&*format!("Now {:?}", state.cube_rotation) as &str).into());
-        *state = Arc::new(State {
-            cube_rotation: state.cube_rotation + delta_time as f32 * 0.001,
-            ..*state.clone()
-        });
+        {
+            let mut state = STATE.lock().unwrap();
+            console::log_1(&(&*format!("Now {:?}", state.cube_rotation) as &str).into());
+            *state = Arc::new(State {
+                cube_rotation: state.cube_rotation + delta_time as f32 * 0.001,
+                ..*state.clone()
+            });
+        }
 
         // Draw
         draw_scene(&self.gl_context).unwrap();
@@ -170,7 +172,7 @@ pub fn draw_scene(ctx: &GlContext) -> Result<(), JsValue> {
         //) -> Result<(), JsValue> {
     let gl = &ctx.gl;
 
-    //let mut state = STATE.lock().unwrap();
+    let  read_state = get_curr_state();
     //console::log_1(&(&*format!("Now {:?}", state.cube_rotation) as &str).into());
 
     // Clear the canvas before we start drawing on it.
@@ -227,7 +229,7 @@ pub fn draw_scene(ctx: &GlContext) -> Result<(), JsValue> {
         // Translate
         Vector3::new(-0.0, 0.0, -6.0),
         // Rotate
-        Vector3::new(0.2, 0.7, 0.3).scale(1.0), //state.cube_rotation),
+        Vector3::new(0.2, 0.7, 0.3).scale(read_state.cube_rotation),
     );
     let model4 = model.to_homogeneous();
     let mat_model = model4.as_slice();

@@ -26,18 +26,10 @@ lazy_static! {
 //    static ref STATE: Mutex<State> = Mutex::new(State::new());
 //}
 
-static mut state: State = State {
-    cube_rotation: 0.0,
-};
+//static mut S: State = State {
+//    cube_rotation: 0.0,
+//};
 
-
-
-pub fn get_state() -> Arc<&'static mut State> {
-    //let res = STATE.lock().unwrap();
-    unsafe {
-        Arc::new(&mut state)
-    }
-}
 
 /// Track game state, 3d positions
 pub struct State {
@@ -50,10 +42,6 @@ impl State {
     pub fn new() -> Self { Self {
         cube_rotation: 0.0,
     }}
-
-    pub fn act(mut self){
-        self.cube_rotation += 1.0;
-    }
 }
 
 pub fn input(key: i32, x: f32, y:f32){
