@@ -1,12 +1,11 @@
 /// From: https://github.com/chinedufn/webgl-water-tutorial/blob/master/src/app/store/camera.rs 
-use nalgebra::{Isometry3, Perspective3, Point3, Vector3};
+use nalgebra::{Perspective3};  //, Isometry3, Point3, Vector3};
 use std::f32::consts::PI;
+
+use crate::util::*;
 
 pub struct Camera {
     projection: Perspective3<f32>,
-    left_right_radians: f32,
-    up_down_radians: f32,
-    orbit_radius: f32,
 }
 
 impl Camera {
@@ -15,88 +14,12 @@ impl Camera {
 
         Camera {
             projection: Perspective3::new(fovy, 1.0, 0.1, 50.0),
-            left_right_radians: 45.0f32.to_radians(),
-            up_down_radians: 80.0f32.to_radians(),
-            orbit_radius: 15.,
         }
     }
 
     pub fn view(&self) -> &[f32] {
         // TODO auto convert to array [f32]
         self.projection.as_matrix().as_slice()
-        //let eye = self.get_eye_pos();
-
-        //let target = Point3::new(0.0, 0.0, 0.0);
-
-        //let view = Isometry3::look_at_rh(&eye, &target, &Vector3::y());
-
-        //let view = view.to_homogeneous();
-
-        //let mut view_array = [0.; 16];
-        //view_array.copy_from_slice(view.as_slice());
-    }
-
-    pub fn view_flipped_y(&self) -> [f32; 16] {
-        let mut eye = self.get_eye_pos();
-        eye.y = -1.0 * eye.y;
-
-        let target = Point3::new(0.0, 0.0, 0.0);
-
-        let view = Isometry3::look_at_rh(&eye, &target, &Vector3::y());
-
-        let view = view.to_homogeneous();
-
-        let mut view_array = [0.; 16];
-        view_array.copy_from_slice(view.as_slice());
-
-        view_array
-    }
-
-    pub fn get_eye_pos(&self) -> Point3<f32> {
-        let yaw = self.left_right_radians;
-        let pitch = self.up_down_radians;
-
-        let eye_x = self.orbit_radius * yaw.sin() * pitch.cos();
-        let eye_y = self.orbit_radius * pitch.sin();
-        let eye_z = self.orbit_radius * yaw.cos() * pitch.cos();
-
-        Point3::new(eye_x, eye_y, eye_z)
-    }
-    pub fn projection(&self) -> [f32; 16] {
-        let mut perspective_array = [0.; 16];
-        perspective_array.copy_from_slice(self.projection.as_matrix().as_slice());
-
-        perspective_array
-    }
-
-    pub fn orbit_left_right(&mut self, delta: f32) {
-        self.left_right_radians += delta;
-    }
-
-    pub fn orbit_up_down(&mut self, delta: f32) {
-        self.up_down_radians += delta;
-
-        // Make sure:
-        // 0.1 <= radians <= PI / 2.1
-        // in order to restrict the camera's up/down orbit motion
-
-        if self.up_down_radians - (PI / 2.1) > 0. {
-            self.up_down_radians = PI / 2.1;
-        }
-
-        if self.up_down_radians - 0.1 < 0. {
-            self.up_down_radians = 0.1;
-        }
-    }
-
-    pub fn zoom(&mut self, zoom: f32) {
-        self.orbit_radius += zoom;
-
-        if self.orbit_radius > 30. {
-            self.orbit_radius = 30.;
-        } else if self.orbit_radius < 5. {
-            self.orbit_radius = 5.;
-        }
     }
 }
 
@@ -107,7 +30,7 @@ use web_sys::{
     HtmlCanvasElement,
     MouseEvent,
     WheelEvent,
-    TouchEvent,
+    KeyboardEvent,
 };
 
 use js_sys::Function;
@@ -118,43 +41,51 @@ use wasm_bindgen::JsCast;
 use wasm_bindgen::{JsValue};
 use wasm_bindgen::convert::FromWasmAbi;
 
-/// 
-pub fn attach_handlers(canvas: &HtmlCanvasElement) -> Result<(), JsValue> {
-    add_handler(
-        "mousedown", canvas,
-        move |event: MouseEvent| {
-            input(1, event.client_x() as f32, event.client_y() as f32);
-        },
-    ).expect("mousedown");
+const KEY_A: u32 = 0x41;
+const KEY_W: u32 = 0x57;
+const KEY_S: u32 = 0x53;
+const KEY_D: u32 = 0x44;
 
-    add_handler(
-        "mouseup", canvas,
-        move |event: MouseEvent| {
-            input(2, event.client_x() as f32, event.client_y() as f32);
-        },
-    ).expect("mouseup");
-
-    add_handler(
-        "wheel", canvas,
-        move |event: WheelEvent| {
-            event.prevent_default();
-            let zoom_amount: f32 = event.delta_y() as f32 / 50.;
-            input(3, zoom_amount, 0.);
-        },
-    ).expect("mouseup");
-
-
-    Ok(())
-}
+let mut g_state: State = None;
 
 pub fn input(key: i32, x: f32, y:f32){
     console::log_1(&(&*format!("Calledback {:?}, {:?}, {:?}", key, x, y) as &str).into());
 }
 
+// the size for values of type `[(&str, dyn FnMut(MouseEvent))]` cannot be known at compilation time: doesn't have a size known at compile-time
+pub fn attach_handlers(canvas: &HtmlCanvasElement, state: &State) -> Result<(), JsValue> {
+
+    add_handler("mousedown", canvas, state, move |event: MouseEvent| {
+        input(1, event.client_x() as f32, event.client_y() as f32);
+    }).expect("Adding mousedown");
+
+    //add_handler("mouseup", canvas, move |event: MouseEvent| {
+    //    input(2, event.client_x() as f32, event.client_y() as f32);
+    //}).expect("Adding mouseup");
+
+    //add_handler("wheel", canvas, move |event: WheelEvent| {
+    //    event.prevent_default();
+    //    let zoom_amount: f32 = event.delta_y() as f32 / 50.;
+    //    input(3, zoom_amount, 0.);
+    //}).expect("Adding wheel");
+
+    //add_handler("keydown", canvas, move |event: KeyboardEvent| {
+    //    let key = event.key_code() as f32;
+    //    input(4, key, 0.);
+    //}).expect("Adding keydown");
+
+    Ok(())
+}
+
 /// Helper mouse handler
 // the trait bound `T: FromWasmAbi` is not satisfied: the trait `FromWasmAbi` is not implemented for `T`
 // the parameter type `impl FnMut(T)` may not live long enough: ...so that the type `impl FnMut(T)` will meet its required lifetime bounds
-pub fn add_handler<T>(name: &str, canvas: &HtmlCanvasElement, closure: impl FnMut(T) + 'static) -> Result<(), JsValue>
+// expected a `Fn<(T,)>` closure, found `impl FnMut(T) + 'static`: expected an `Fn<(T,)>` closure, found `impl FnMut(T) + 'static`
+pub fn add_handler<T>(
+        name: &str,
+        canvas: &HtmlCanvasElement,
+        closure: impl FnMut(T) + 'static)
+    -> Result<(), JsValue>
         where T: FromWasmAbi + 'static {
         //where F: FnMut(MouseEvent) + 'static{
     let handler = Closure::wrap(Box::new(closure) as Box<dyn FnMut(_)>);
@@ -164,6 +95,20 @@ pub fn add_handler<T>(name: &str, canvas: &HtmlCanvasElement, closure: impl FnMu
 }
 
 /*
+ * Did no work
+//pub fn add_handlers<T>(canvas: &HtmlCanvasElement, closures: &[(&str, Box<dyn Fn(T) + 'static>)] ) -> Result<(), JsValue>
+//        where T: FromWasmAbi + 'static {
+//        //where F: FnMut(MouseEvent) + 'static{
+//    for (name, closure) in closures {
+//        let heap = Box::new(*closure) as Box<dyn FnMut(_)>;
+//        let handler = Closure::wrap(heap);
+//        canvas.add_event_listener_with_callback(name, handler.as_ref().unchecked_ref() as &Function)?;
+//        handler.forget();
+//    }
+//    Ok(())
+//}
+
+/// Memory
 /// Helper: touch hanlder
 trait A { fn f() -> Self; }
 impl A for i32 { fn f() -> i32 { 42 } }

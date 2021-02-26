@@ -37,4 +37,5 @@ features = [
   'MouseEvent',
   'WheelEvent',
   'TouchEvent',
+  'KeyboardEvent',
 ]

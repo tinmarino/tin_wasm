@@ -42,18 +42,17 @@ pub struct Buffers {
     indice: WebGlBuffer,
 }
 
-/// Other single container, track changes
-pub struct State {
-    cube_rotation: f32,
-    camera: Camera,
-}
-
 /// From MDN (translated) see html
 #[allow(dead_code)]
 pub fn canvas_gl2() -> Result<(), JsValue> {
+    let mut state = State {
+        cube_rotation: 0.0,
+        camera: Camera::new(),
+    };
+
     let canvas = create_canvas("id_canvas_webgl")?;
 
-    attach_handlers(&canvas).
+    attach_handlers(&canvas, &state).
         expect("Cannot attach input");
 
     let gl = canvas
@@ -88,11 +87,6 @@ pub fn canvas_gl2() -> Result<(), JsValue> {
         u_sampler: gl.get_uniform_location(&program, "uSampler").unwrap(),
         // Pass me at the end so that I can keep owning it
         program: program,
-    };
-
-    let mut state = State {
-        cube_rotation: 0.0,
-        camera: Camera::new(),
     };
 
     // Render loop
