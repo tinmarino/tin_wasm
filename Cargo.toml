@@ -25,7 +25,6 @@ features = [
   'HtmlCanvasElement',
   'Node',
   'Window',
-  'MouseEvent',
   'ImageBitmap',
   'console',
   'CssStyleDeclaration',
@@ -35,4 +34,7 @@ features = [
   'WebGlShader',
   'WebGlTexture',
   'WebGlUniformLocation',
+  'MouseEvent',
+  'WheelEvent',
+  'TouchEvent',
 ]

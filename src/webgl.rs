@@ -13,7 +13,7 @@ use web_sys::{
     WebGlBuffer,
     //WebGlUniformLocation,
 };
-use nalgebra::{ Isometry3, Perspective3, Vector3 };
+use nalgebra::{ Isometry3, Vector3 };
 
 use crate::util::*;
 use crate::util_gl::{
@@ -23,6 +23,8 @@ use crate::util_gl::{
     buffer_f32_data, buffer_u16_indices,
     ProgramInfo,
 };
+
+use crate::camera::*;
 
 /// From: https://github.com/rustwasm/wasm-bindgen/blob/master/examples/request-animation-frame/src/lib.rs
 fn request_animation_frame(f: &Closure<dyn FnMut()>) {
@@ -43,12 +45,16 @@ pub struct Buffers {
 /// Other single container, track changes
 pub struct State {
     cube_rotation: f32,
+    camera: Camera,
 }
 
 /// From MDN (translated) see html
 #[allow(dead_code)]
 pub fn canvas_gl2() -> Result<(), JsValue> {
     let canvas = create_canvas("id_canvas_webgl")?;
+
+    attach_handlers(&canvas).
+        expect("Cannot attach input");
 
     let gl = canvas
         .get_context("webgl")?
@@ -86,6 +92,7 @@ pub fn canvas_gl2() -> Result<(), JsValue> {
 
     let mut state = State {
         cube_rotation: 0.0,
+        camera: Camera::new(),
     };
 
     // Render loop
@@ -172,9 +179,13 @@ pub fn draw_scene(
     // ratio that matches the display size of the canvas
     // and we only want to see objects between 0.1 units
     // and 100 units away from the camera.
-    let perspective: Perspective3<f32> = Perspective3::new(
-        45.0 * 3.14 / 180.0, 1.0, 0.1, 100.0);
-    let mat_projection = perspective.as_matrix().as_slice();
+    // let perspective: Perspective3<f32> = Perspective3::new(
+    //     45.0 * 3.14 / 180.0, 1.0, 0.1, 100.0);
+    // let mat_projection = perspective.as_matrix().as_slice();
+    let mat_projection = state.camera.view();
+    //let mut camera_pos = [camera_pos.x, camera_pos.y, camera_pos.z];
+    //gl.uniform3fv_with_f32_array(camera_pos_uni.as_ref(), &mut camera_pos);
+    //gl.uniform1i(mesh_texture_uni.as_ref(), TextureUnit::Stone.texture_unit());
 
     // Set the drawing position to the "identity" point, which is
     // the center of the scene.
