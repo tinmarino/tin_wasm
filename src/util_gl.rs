@@ -16,6 +16,14 @@ use web_sys::{
 use web_sys::WebGlRenderingContext as GL;
 
 
+/// Just a single container to keep our arrays
+pub struct Buffers {
+    pub position: WebGlBuffer,
+    pub normal: WebGlBuffer,
+    pub texture_coord: WebGlBuffer,
+    pub indice: WebGlBuffer,
+}
+
 
 pub struct ProgramInfo {
     // I own the stuff and ciao bambino
@@ -244,6 +252,145 @@ pub fn load_texture(
     imgrc.set_src(img_src);
 
     Ok(texture)
+}
+
+/// Create the vertices geographics array buffers
+pub fn init_buffers(gl: &GL, program: &WebGlProgram) -> Result<Buffers, JsValue> {
+    // Now create an array of positions for the square.
+    let positions = [
+        // Front face
+        -1.0, -1.0,  1.0,
+         1.0, -1.0,  1.0,
+         1.0,  1.0,  1.0,
+        -1.0,  1.0,  1.0,
+
+        // Back face
+        -1.0, -1.0, -1.0,
+        -1.0,  1.0, -1.0,
+         1.0,  1.0, -1.0,
+         1.0, -1.0, -1.0,
+
+        // Top face
+        -1.0,  1.0, -1.0,
+        -1.0,  1.0,  1.0,
+         1.0,  1.0,  1.0,
+         1.0,  1.0, -1.0,
+
+        // Bottom face
+        -1.0, -1.0, -1.0,
+         1.0, -1.0, -1.0,
+         1.0, -1.0,  1.0,
+        -1.0, -1.0,  1.0,
+
+        // Right face
+         1.0, -1.0, -1.0,
+         1.0,  1.0, -1.0,
+         1.0,  1.0,  1.0,
+         1.0, -1.0,  1.0,
+
+        // Left face
+        -1.0, -1.0, -1.0,
+        -1.0, -1.0,  1.0,
+        -1.0,  1.0,  1.0,
+        -1.0,  1.0, -1.0,
+    ];
+    let buf_position = buffer_f32_data(&gl, &program, &positions, "aVertexPosition", 3)
+        .expect("buf_position");
+
+    let texture_coordinates = [
+        // Front
+        0.0,  0.0,
+        1.0,  0.0,
+        1.0,  1.0,
+        0.0,  1.0,
+        // Back
+        0.0,  0.0,
+        1.0,  0.0,
+        1.0,  1.0,
+        0.0,  1.0,
+        // Top
+        0.0,  0.0,
+        1.0,  0.0,
+        1.0,  1.0,
+        0.0,  1.0,
+        // Bottom
+        0.0,  0.0,
+        1.0,  0.0,
+        1.0,  1.0,
+        0.0,  1.0,
+        // Right
+        0.0,  0.0,
+        1.0,  0.0,
+        1.0,  1.0,
+        0.0,  1.0,
+        // Left
+        0.0,  0.0,
+        1.0,  0.0,
+        1.0,  1.0,
+        0.0,  1.0,
+    ];
+    let buf_texture = buffer_f32_data(&gl, &program, &texture_coordinates, "aTextureCoord", 2)
+        .expect("buf_texture");
+
+    // This array defines each face as two triangles, using the
+    // indices into the vertex array to specify each triangle's
+    // position.
+    let indices = [
+        0,  1,  2,      0,  2,  3,    // front
+        4,  5,  6,      4,  6,  7,    // back
+        8,  9,  10,     8,  10, 11,   // top
+        12, 13, 14,     12, 14, 15,   // bottom
+        16, 17, 18,     16, 18, 19,   // right
+        20, 21, 22,     20, 22, 23,   // left
+    ];
+    let buf_indice = buffer_u16_indices(&gl, &indices)
+        .expect("buf_indice");
+
+    let vertex_normals = [
+        // Front
+        0.0,  0.0,  1.0,
+        0.0,  0.0,  1.0,
+        0.0,  0.0,  1.0,
+        0.0,  0.0,  1.0,
+
+        // Back
+        0.0,  0.0, -1.0,
+        0.0,  0.0, -1.0,
+        0.0,  0.0, -1.0,
+        0.0,  0.0, -1.0,
+
+        // Top
+        0.0,  1.0,  0.0,
+        0.0,  1.0,  0.0,
+        0.0,  1.0,  0.0,
+        0.0,  1.0,  0.0,
+
+        // Bottom
+        0.0, -1.0,  0.0,
+        0.0, -1.0,  0.0,
+        0.0, -1.0,  0.0,
+        0.0, -1.0,  0.0,
+
+        // Right
+        1.0,  0.0,  0.0,
+        1.0,  0.0,  0.0,
+        1.0,  0.0,  0.0,
+        1.0,  0.0,  0.0,
+
+        // Left
+        -1.0,  0.0,  0.0,
+        -1.0,  0.0,  0.0,
+        -1.0,  0.0,  0.0,
+        -1.0,  0.0,  0.0
+    ];
+    let buf_normal = buffer_f32_data(&gl, &program, &vertex_normals, "aVertexNormal", 3)
+        .expect("buf_normal");
+    Ok(Buffers{
+        position: buf_position,
+        normal: buf_normal,
+        texture_coord: buf_texture,
+        indice: buf_indice,
+    })
 }
 
 #[allow(dead_code)]

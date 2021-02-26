@@ -10,6 +10,9 @@ macro_rules! log {
     }
 }
 
+#[macro_use]
+extern crate lazy_static;
+
 pub mod prelude;
 mod util;
 mod util_gl;

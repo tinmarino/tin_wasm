@@ -10,21 +10,18 @@ use web_sys::{
     console,
     WebGlProgram,
     WebGlTexture,
-    WebGlBuffer,
+    WebGlRenderingContext,
+    HtmlCanvasElement,
     //WebGlUniformLocation,
 };
 use nalgebra::{ Isometry3, Vector3 };
 
 use crate::util::*;
-use crate::util_gl::{
-    FRAGMENT_SHADER, VERTEX_SHADER,
-    link_program, compile_shader, init_program,
-    load_texture,
-    buffer_f32_data, buffer_u16_indices,
-    ProgramInfo,
-};
+use crate::util_gl::*;
 
-use crate::camera::*;
+use std::sync::Arc;
+//use crate::camera::*;
+
 
 /// From: https://github.com/rustwasm/wasm-bindgen/blob/master/examples/request-animation-frame/src/lib.rs
 fn request_animation_frame(f: &Closure<dyn FnMut()>) {
@@ -34,31 +31,26 @@ fn request_animation_frame(f: &Closure<dyn FnMut()>) {
 }
 
 
-/// Just a single container to keep our arrays
-pub struct Buffers {
-    position: WebGlBuffer,
-    normal: WebGlBuffer,
-    texture_coord: WebGlBuffer,
-    indice: WebGlBuffer,
+/// Holds all Gl stuff
+pub struct GlContext {
+    gl: WebGlRenderingContext,
+    canvas: HtmlCanvasElement,
+    camera: super::camera::Camera,
+    buffers: Buffers,
+    texture: Rc<WebGlTexture>,
+    // Contains program: WebGlProgram,
+    program_info: ProgramInfo,
 }
 
-/// From MDN (translated) see html
-#[allow(dead_code)]
-pub fn canvas_gl2() -> Result<(), JsValue> {
-    let mut state = State {
-        cube_rotation: 0.0,
-        camera: Camera::new(),
-    };
-
+impl GlContext { pub fn new() -> Result<Self, JsValue> {
     let canvas = create_canvas("id_canvas_webgl")?;
 
-    attach_handlers(&canvas, &state).
-        expect("Cannot attach input");
-
     let gl = canvas
-        .get_context("webgl")?
+        .get_context("webgl")
+        .expect("Getting GL context <- Canvas")
         .unwrap()
-        .dyn_into::<GL>()?;
+        .dyn_into::<GL>()
+        .expect("Casting dynamicaly GL Context");
 
     // Set clear color to black, fully opaque
     gl.clear_color(0.0, 0.0, 0.0, 1.0);
@@ -88,7 +80,43 @@ pub fn canvas_gl2() -> Result<(), JsValue> {
         // Pass me at the end so that I can keep owning it
         program: program,
     };
+    Ok(Self {
+        gl: gl,
+        canvas: canvas,
+        camera: super::camera::Camera::new(),
+        buffers: buffers,
+        texture: texture,
+        program_info: program_info,
+    })
 
+}}
+
+/// From MDN (translated) see html
+#[allow(dead_code)]
+pub fn canvas_gl2() -> Result<(), JsValue> {
+    let game = GameGl::new()
+        .expect("Creating game");
+
+    //let state = Some().take();
+    super::camera::attach_handlers(&game.gl_context.canvas)
+        .expect("Cannot attach input");
+
+    game.start_loop().
+        expect("Launching game loop");
+    Ok(())
+}
+
+pub struct GameGl {
+    gl_context: GlContext,
+}
+
+impl GameGl { pub fn new() -> Result<Self, JsValue> {
+    Ok(Self {
+        gl_context: GlContext::new()?,
+    })
+}}
+
+impl GameGl { pub fn start_loop(self) -> Result<(), JsValue> {
     // Render loop
     // Dont ask me
     let f = Rc::new(RefCell::new(None));
@@ -96,6 +124,7 @@ pub fn canvas_gl2() -> Result<(), JsValue> {
     const FPS_THROTTLE: f64 = 1000.0 / 60.0; // milliseconds / frames
     let mut previous: f64 = js_sys::Date::now();
     *g.borrow_mut() = Some(Closure::wrap(Box::new(move || {
+        //console::log_1(&"In loop".into());
         request_animation_frame(f.borrow().as_ref().unwrap());
 
         // Get time (miliseconds)
@@ -112,10 +141,16 @@ pub fn canvas_gl2() -> Result<(), JsValue> {
         previous = now;
 
         // Update game
-        state.cube_rotation += delta_time as f32 * 0.001;
+        let mut state = STATE.lock().unwrap();
+        console::log_1(&(&*format!("Now {:?}", state.cube_rotation) as &str).into());
+        *state = Arc::new(State {
+            cube_rotation: state.cube_rotation + delta_time as f32 * 0.001,
+            ..*state.clone()
+        });
 
         // Draw
-        draw_scene(&gl, &program_info, &texture, &buffers, &state).unwrap();
+        draw_scene(&self.gl_context).unwrap();
+            //&self.gl, &self.program_info, &self.texture, &buffers, &state).unwrap();
 
     }) as Box<dyn FnMut()>));
 
@@ -123,16 +158,21 @@ pub fn canvas_gl2() -> Result<(), JsValue> {
     request_animation_frame(g.borrow().as_ref().unwrap());
     //let program_info = 
     Ok(())
-}
+}}
 
 #[allow(dead_code)]
-pub fn draw_scene(
-    gl: &GL,
-    program_info: &ProgramInfo,
-    texture: &WebGlTexture,
-    buffers: &Buffers,
-    state: &State,
-) -> Result<(), JsValue> {
+pub fn draw_scene(ctx: &GlContext) -> Result<(), JsValue> {
+        //gl: &GL,
+        //program_info: &ProgramInfo,
+        //texture: &WebGlTexture,
+        //buffers: &Buffers,
+        //state: &State,
+        //) -> Result<(), JsValue> {
+    let gl = &ctx.gl;
+
+    //let mut state = STATE.lock().unwrap();
+    //console::log_1(&(&*format!("Now {:?}", state.cube_rotation) as &str).into());
+
     // Clear the canvas before we start drawing on it.
     gl.clear_color(0.3, 0.3, 0.3, 1.0);  // Clear to black, fully opaque
     gl.clear_depth(1.0);                 // Clear everything
@@ -144,28 +184,28 @@ pub fn draw_scene(
 
     // Tell WebGL how to pull out the positions from the position
     // buffer into the vertexPosition attribute
-    gl.bind_buffer(GL::ARRAY_BUFFER, Some(&buffers.position));
+    gl.bind_buffer(GL::ARRAY_BUFFER, Some(&ctx.buffers.position));
     // 3D, float, normalize, stride, offset
     gl.vertex_attrib_pointer_with_i32(
-        program_info.a_vertex_position as u32,
+        ctx.program_info.a_vertex_position as u32,
         3, GL::FLOAT, false, 0, 0);
     // If you comment the next line, you won't see anything
-    gl.enable_vertex_attrib_array(program_info.a_vertex_position as u32);
+    gl.enable_vertex_attrib_array(ctx.program_info.a_vertex_position as u32);
 
     // Tell webgl how to pull out the texture coordinates from buffer
-    gl.bind_buffer(GL::ARRAY_BUFFER, Some(&buffers.texture_coord));
+    gl.bind_buffer(GL::ARRAY_BUFFER, Some(&ctx.buffers.texture_coord));
     gl.vertex_attrib_pointer_with_i32(
-        program_info.a_texture_coord as u32,
+        ctx.program_info.a_texture_coord as u32,
         2, GL::FLOAT, false, 0, 0);
-    gl.enable_vertex_attrib_array(program_info.a_texture_coord as u32);
+    gl.enable_vertex_attrib_array(ctx.program_info.a_texture_coord as u32);
 
     // Tell WebGL how to pull out the normals from
     // the normal buffer into the vertexNormal attribute.
-    gl.bind_buffer(GL::ARRAY_BUFFER, Some(&buffers.normal));
+    gl.bind_buffer(GL::ARRAY_BUFFER, Some(&ctx.buffers.normal));
     gl.vertex_attrib_pointer_with_i32(
-        program_info.a_vertex_normal as u32,
+        ctx.program_info.a_vertex_normal as u32,
         3, GL::FLOAT, false, 0, 0);
-    gl.enable_vertex_attrib_array(program_info.a_vertex_normal as u32);
+    gl.enable_vertex_attrib_array(ctx.program_info.a_vertex_normal as u32);
 
     // Create a perspective matrix, a special matrix that is
     // used to simulate the distortion of perspective in a camera.
@@ -176,7 +216,7 @@ pub fn draw_scene(
     // let perspective: Perspective3<f32> = Perspective3::new(
     //     45.0 * 3.14 / 180.0, 1.0, 0.1, 100.0);
     // let mat_projection = perspective.as_matrix().as_slice();
-    let mat_projection = state.camera.view();
+    let mat_projection = ctx.camera.view();
     //let mut camera_pos = [camera_pos.x, camera_pos.y, camera_pos.z];
     //gl.uniform3fv_with_f32_array(camera_pos_uni.as_ref(), &mut camera_pos);
     //gl.uniform1i(mesh_texture_uni.as_ref(), TextureUnit::Stone.texture_unit());
@@ -187,7 +227,7 @@ pub fn draw_scene(
         // Translate
         Vector3::new(-0.0, 0.0, -6.0),
         // Rotate
-        Vector3::new(0.2, 0.7, 0.3).scale(state.cube_rotation),
+        Vector3::new(0.2, 0.7, 0.3).scale(1.0), //state.cube_rotation),
     );
     let model4 = model.to_homogeneous();
     let mat_model = model4.as_slice();
@@ -206,178 +246,39 @@ pub fn draw_scene(
     //mat4.transpose(normalMatrix, normalMatrix);
 
     //// Tell WebGL to use our program when drawing
-    gl.use_program(Some(&program_info.program));
+    gl.use_program(Some(&ctx.program_info.program));
 
     // Set the shader uniforms
     gl.uniform_matrix4fv_with_f32_array(
-            Some(&program_info.u_projection_matrix),
+            Some(&ctx.program_info.u_projection_matrix),
             false,
             &mat_projection);
     gl.uniform_matrix4fv_with_f32_array(
-            Some(&program_info.u_model_view_matrix),
+            Some(&ctx.program_info.u_model_view_matrix),
             false,
             &mat_model);
     gl.uniform_matrix4fv_with_f32_array(
-            Some(&program_info.u_normal_matrix),
+            Some(&ctx.program_info.u_normal_matrix),
             false,
             &mat_norm);
 
     // Tell WebGL which indices to use to index the vertices
-    gl.bind_buffer(GL::ELEMENT_ARRAY_BUFFER, Some(&buffers.indice));
+    gl.bind_buffer(GL::ELEMENT_ARRAY_BUFFER, Some(&ctx.buffers.indice));
 
     // Tell WebGL we want to affect texture unit 0
     gl.active_texture(GL::TEXTURE0);
 
     // Bind the texture to texture unit 0
-    gl.bind_texture(GL::TEXTURE_2D, Some(&texture));
+    gl.bind_texture(GL::TEXTURE_2D, Some(&ctx.texture));
 
     // DRAW !
     // Tell the shader we bound the texture to texture unit 0
-    gl.uniform1i(Some(&program_info.u_sampler), 0);
+    gl.uniform1i(Some(&ctx.program_info.u_sampler), 0);
     gl.draw_elements_with_i32(GL::TRIANGLES, 36, GL::UNSIGNED_SHORT, 0);
 
     Ok(())
 }
 
-
-/// Create the vertices geographics array buffers
-pub fn init_buffers(gl: &GL, program: &WebGlProgram) -> Result<Buffers, JsValue> {
-    // Now create an array of positions for the square.
-    let positions = [
-        // Front face
-        -1.0, -1.0,  1.0,
-         1.0, -1.0,  1.0,
-         1.0,  1.0,  1.0,
-        -1.0,  1.0,  1.0,
-
-        // Back face
-        -1.0, -1.0, -1.0,
-        -1.0,  1.0, -1.0,
-         1.0,  1.0, -1.0,
-         1.0, -1.0, -1.0,
-
-        // Top face
-        -1.0,  1.0, -1.0,
-        -1.0,  1.0,  1.0,
-         1.0,  1.0,  1.0,
-         1.0,  1.0, -1.0,
-
-        // Bottom face
-        -1.0, -1.0, -1.0,
-         1.0, -1.0, -1.0,
-         1.0, -1.0,  1.0,
-        -1.0, -1.0,  1.0,
-
-        // Right face
-         1.0, -1.0, -1.0,
-         1.0,  1.0, -1.0,
-         1.0,  1.0,  1.0,
-         1.0, -1.0,  1.0,
-
-        // Left face
-        -1.0, -1.0, -1.0,
-        -1.0, -1.0,  1.0,
-        -1.0,  1.0,  1.0,
-        -1.0,  1.0, -1.0,
-    ];
-    let buf_position = buffer_f32_data(&gl, &program, &positions, "aVertexPosition", 3)
-        .expect("buf_position");
-
-    let texture_coordinates = [
-        // Front
-        0.0,  0.0,
-        1.0,  0.0,
-        1.0,  1.0,
-        0.0,  1.0,
-        // Back
-        0.0,  0.0,
-        1.0,  0.0,
-        1.0,  1.0,
-        0.0,  1.0,
-        // Top
-        0.0,  0.0,
-        1.0,  0.0,
-        1.0,  1.0,
-        0.0,  1.0,
-        // Bottom
-        0.0,  0.0,
-        1.0,  0.0,
-        1.0,  1.0,
-        0.0,  1.0,
-        // Right
-        0.0,  0.0,
-        1.0,  0.0,
-        1.0,  1.0,
-        0.0,  1.0,
-        // Left
-        0.0,  0.0,
-        1.0,  0.0,
-        1.0,  1.0,
-        0.0,  1.0,
-    ];
-    let buf_texture = buffer_f32_data(&gl, &program, &texture_coordinates, "aTextureCoord", 2)
-        .expect("buf_texture");
-
-    // This array defines each face as two triangles, using the
-    // indices into the vertex array to specify each triangle's
-    // position.
-    let indices = [
-        0,  1,  2,      0,  2,  3,    // front
-        4,  5,  6,      4,  6,  7,    // back
-        8,  9,  10,     8,  10, 11,   // top
-        12, 13, 14,     12, 14, 15,   // bottom
-        16, 17, 18,     16, 18, 19,   // right
-        20, 21, 22,     20, 22, 23,   // left
-    ];
-    let buf_indice = buffer_u16_indices(&gl, &indices)
-        .expect("buf_indice");
-
-    let vertex_normals = [
-        // Front
-        0.0,  0.0,  1.0,
-        0.0,  0.0,  1.0,
-        0.0,  0.0,  1.0,
-        0.0,  0.0,  1.0,
-
-        // Back
-        0.0,  0.0, -1.0,
-        0.0,  0.0, -1.0,
-        0.0,  0.0, -1.0,
-        0.0,  0.0, -1.0,
-
-        // Top
-        0.0,  1.0,  0.0,
-        0.0,  1.0,  0.0,
-        0.0,  1.0,  0.0,
-        0.0,  1.0,  0.0,
-
-        // Bottom
-        0.0, -1.0,  0.0,
-        0.0, -1.0,  0.0,
-        0.0, -1.0,  0.0,
-        0.0, -1.0,  0.0,
-
-        // Right
-        1.0,  0.0,  0.0,
-        1.0,  0.0,  0.0,
-        1.0,  0.0,  0.0,
-        1.0,  0.0,  0.0,
-
-        // Left
-        -1.0,  0.0,  0.0,
-        -1.0,  0.0,  0.0,
-        -1.0,  0.0,  0.0,
-        -1.0,  0.0,  0.0
-    ];
-    let buf_normal = buffer_f32_data(&gl, &program, &vertex_normals, "aVertexNormal", 3)
-        .expect("buf_normal");
-    Ok(Buffers{
-        position: buf_position,
-        normal: buf_normal,
-        texture_coord: buf_texture,
-        indice: buf_indice,
-    })
-}
 
 #[allow(dead_code)]
 pub fn canvas_gl1() -> Result<(), JsValue> {

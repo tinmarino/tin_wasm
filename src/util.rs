@@ -1,14 +1,66 @@
 /// Utilities
-use wasm_bindgen::prelude::*;
-use wasm_bindgen::JsCast;
+use wasm_bindgen::{ JsCast, JsValue };
+use web_sys::{
+    console,
+};
 
-use crate::camera::Camera;
 
-/// Other single container, track changes
+use std::sync::Arc;
+use std::sync::Mutex;
+
+//const KEY_A: u32 = 0x41;
+//const KEY_W: u32 = 0x57;
+//const KEY_S: u32 = 0x53;
+//const KEY_D: u32 = 0x44;
+
+pub fn get_curr_state() -> Arc<State> {
+    STATE.lock().unwrap().clone()
+}
+
+lazy_static! {
+    pub static ref STATE: Mutex<Arc<State>> = Mutex::new(Arc::new(State::new()));
+}
+
+//lazy_static! {
+//    //static ref STATE: Mutex<Arc<State>> = Mutex::new(Arc::new(State::new().unwrap()));
+//    static ref STATE: Mutex<State> = Mutex::new(State::new());
+//}
+
+static mut state: State = State {
+    cube_rotation: 0.0,
+};
+
+
+
+pub fn get_state() -> Arc<&'static mut State> {
+    //let res = STATE.lock().unwrap();
+    unsafe {
+        Arc::new(&mut state)
+    }
+}
+
+/// Track game state, 3d positions
 pub struct State {
     pub cube_rotation: f32,
-    pub camera: Camera,
 }
+
+impl State {
+    /// Init internal game state variables
+    //pub fn new() -> Result<Self, JsValue> { Ok(Self {
+    pub fn new() -> Self { Self {
+        cube_rotation: 0.0,
+    }}
+
+    pub fn act(mut self){
+        self.cube_rotation += 1.0;
+    }
+}
+
+pub fn input(key: i32, x: f32, y:f32){
+    console::log_1(&(&*format!("Calledback {:?}, {:?}, {:?}", key, x, y) as &str).into());
+}
+
+
 
 /// Append a canvas to main window
 pub fn create_canvas(id: &str) -> Result<web_sys::HtmlCanvasElement, JsValue>{
