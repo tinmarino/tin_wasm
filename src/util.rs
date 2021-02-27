@@ -55,6 +55,13 @@ impl State {
     }}
 }
 
+pub fn add_array3(a: [f32; 3], b:[f32; 3]) -> [f32; 3] {
+    let mut c = [0.0; 3];
+    for i in 0..3 {
+        c[i] = a[i] + b[i];
+    }
+    c
+}
 
 /// Append a canvas to main window
 pub fn create_canvas(id: &str) -> Result<web_sys::HtmlCanvasElement, JsValue>{

@@ -16,6 +16,14 @@ use super::constants::*;
 use super::util::*;
 use std::collections::HashSet;
 
+
+
+// Touch speed
+const TS: f32 = 0.1;
+// Rotate Speed
+const RS: f32 = 0.01;
+
+
 pub struct Camera {
     pub position: [f32; 3],
     pub target: [f32; 3],
@@ -36,6 +44,31 @@ impl Camera {
                 Vector3::new(0., 0., 0.),
             ),
             keys_down: HashSet::with_capacity(32),
+        }
+    }
+
+    pub fn key_press(&mut self, key: u32) -> () {
+
+        web_sys::console::log_1(&(&*format!("Key {:?}", key) as &str).into());
+        let translate = match key {
+            JS_KEY_W => [ 0., 0., -TS],
+            JS_KEY_S => [ 0., 0., TS],
+            JS_KEY_A => [-TS, 0., 0.],
+            JS_KEY_D => [TS, 0., 0.],
+            _ => [0.0, 0.0, 0.0],
+        };
+        self.position = add_array3(self.position, translate);
+    }
+
+    /// Copy to keep me immutable
+    pub fn get_keys_down(&self) -> HashSet<u32> {
+        self.keys_down.clone()
+    }
+
+    /// Update according to key pressed
+    pub fn update(&mut self) {
+        for key in self.get_keys_down() {
+            self.key_press(key);
         }
     }
 

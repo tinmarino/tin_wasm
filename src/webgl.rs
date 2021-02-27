@@ -28,11 +28,6 @@ use std::sync::Arc;
 use super::constants::*;
 //use crate::camera::*;
 
-// Touch speed
-const TS: f32 = 0.1;
-// Rotate Speed
-const RS: f32 = 0.01;
-
 /// From: https://github.com/rustwasm/wasm-bindgen/blob/master/examples/request-animation-frame/src/lib.rs
 fn request_animation_frame(f: &Closure<dyn FnMut()>) {
     window()
@@ -138,14 +133,6 @@ pub fn input(key: i32, x: f32, y:f32){
     //let gl_context = self.store.borrow_mut();
 }
 
-pub fn add_array(a: [f32; 3], b:[f32; 3]) -> [f32; 3] {
-    //let a = [0, 1, 2, 3, 4];
-    let mut c = [0.0; 3];
-    for i in 0..3 {
-        c[i] = a[i] + b[i];
-    }
-    c
-}
 
 // the size for values of type `[(&str, dyn FnMut(MouseEvent))]` cannot be known at compilation time: doesn't have a size known at compile-time
 // explicit lifetime required in the type of `state`: lifetime `'static` required: static to state
@@ -156,14 +143,6 @@ pub fn attach_handlers(canvas: &HtmlCanvasElement, game: Rc<GameGl>) -> Result<(
     { //let game = Rc::clone(&game);
     add_handler("mousedown", canvas, move |event: MouseEvent| {
         input(1, event.client_x() as f32, event.client_y() as f32);
-        //let mut gl_context =  game.store.borrow_mut();
-        ////gl_context.camera.forward(1.0);
-        //let mut state = STATE.lock().unwrap();
-        //*state = Arc::new(State {
-        //    cube_rotation: state.cube_rotation + 1.0,
-        //    ..*state.clone()
-        //});
-
     }).expect("Adding mousedown");
     }
 
@@ -184,35 +163,9 @@ pub fn attach_handlers(canvas: &HtmlCanvasElement, game: Rc<GameGl>) -> Result<(
     { let game = Rc::clone(&game);
     add_handler("keydown", canvas, move |event: KeyboardEvent| {
         let key = event.key_code() as u32;
-        //// Get speed matrix
-        //let speed:[f32; 3];
-        //{
-        //    speed = get_curr_state().speed;
-        //}
         input(4, key as f32, 0.);
         let mut gl_context = game.store.borrow_mut();
         gl_context.camera.keys_down.insert(key);
-        
-        //let translate: [f32; 3] = match key  as u32 {
-        //    JS_KEY_W => [ 0., 0., -TS],
-        //    JS_KEY_S => [ 0., 0., TS],
-        //    JS_KEY_A => [-TS, 0., 0.],
-        //    JS_KEY_D => [TS, 0., 0.],
-        //    _ => [0.0, 0.0, 0.0],
-        //};
-        //let target: [f32; 3] = match key as u32 {
-        //    JS_KEY_LEFT => [0., 0., RS],
-        //    JS_KEY_RIGHT => [0., 0., -RS],
-        //    JS_KEY_UP => [RS, 0., 0.],
-        //    JS_KEY_DOWN => [-RS, 0., -RS],
-        //    _ => [0.0, 0.0, 0.0],
-        //};
-        //let mut state = STATE.lock().unwrap();
-        //*state = Arc::new(State {
-        //    position: add_array(state.position, translate),
-        //    target: add_array(state.target, target),
-        //    ..*state.clone()
-        //});
     }).expect("Adding keydown");
     }
 
@@ -222,19 +175,6 @@ pub fn attach_handlers(canvas: &HtmlCanvasElement, game: Rc<GameGl>) -> Result<(
         input(5, key as f32, 0.);
         let mut gl_context = game.store.borrow_mut();
         gl_context.camera.keys_down.remove(&key);
-        //let mut tran: [f32; 3] = match key  as u32 {
-        //    JS_KEY_W => [ 0., 0., TS],
-        //    JS_KEY_S => [ 0., 0., -TS],
-        //    JS_KEY_A => [TS,  0.,  0.],
-        //    JS_KEY_D => [-TS,  0.,  0.],
-        //    _ => [0.0, 0.0, 0.0],
-        //};
-        //tran = add_array(speed, tran);
-        //let mut state = STATE.lock().unwrap();
-        //*state = Arc::new(State {
-        //    speed: tran,
-        //    ..*state.clone()
-        //});
     }).expect("Adding keydown");
     }
 
@@ -274,44 +214,12 @@ pub fn start_loop(game: Rc<GameGl>) -> Result<(), JsValue> {
         //    });
         //}
         // Update camera
-        let keys;
         {
             // TODO speed must be added in update loop and no input
             let mut gl_context = game.store.borrow_mut();
-            keys = &gl_context.camera.keys_down;
-            for key in keys {
-                let translate: [f32; 3] = match *key as u32 {
-                    JS_KEY_W => [ 0., 0., -TS],
-                    JS_KEY_S => [ 0., 0., TS],
-                    JS_KEY_A => [-TS, 0., 0.],
-                    JS_KEY_D => [TS, 0., 0.],
-                    _ => [0.0, 0.0, 0.0],
-                };
-                //let mut gl_context = game.store.borrow_mut();
-                //gl_context.camera.translate_arr(translate); 
-                let target: [f32; 3] = match *key as u32 {
-                    JS_KEY_LEFT => [0., 0., RS],
-                    JS_KEY_RIGHT => [0., 0., -RS],
-                    JS_KEY_UP => [RS, 0., 0.],
-                    JS_KEY_DOWN => [-RS, 0., -RS],
-                    _ => [0.0, 0.0, 0.0],
-                };
-                let mut state = STATE.lock().unwrap();
-                *state = Arc::new(State {
-                    position: add_array(state.position, translate),
-                    target: add_array(state.target, target),
-                    ..*state.clone()
-                });
-            }
+            gl_context.camera.update();
         }
 
-
-        {
-            let read_state = get_curr_state();
-            let mut gl_context = game.store.borrow_mut();
-            gl_context.camera.translate_arr(read_state.position); 
-            //gl_context.camera.rotate_arr(read_state.rotate); 
-        }
 
         // Draw
         let gl_context = game.store.borrow_mut();
