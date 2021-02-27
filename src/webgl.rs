@@ -1,5 +1,5 @@
 /// From: Javascript: https://developer.mozilla.org/en-US/docs/Web/API/WebGL_API/Tutorial
-/// Log with: console::log_1(&(&*format!("Now {:?}", now) as &str).into());
+/// web_sys::console::log_1(&(&*format!("Now {:?}", now) as &str).into());
 use std::rc::Rc;
 use std::cell::RefCell;
 
@@ -12,6 +12,9 @@ use web_sys::{
     WebGlTexture,
     WebGlRenderingContext,
     HtmlCanvasElement,
+    MouseEvent,
+    WheelEvent,
+    KeyboardEvent,
     //WebGlUniformLocation,
 };
 use nalgebra::{ Isometry3, Vector3 };
@@ -20,6 +23,8 @@ use crate::util::*;
 use crate::util_gl::*;
 
 use std::sync::Arc;
+use std::sync::Mutex;
+
 //use crate::camera::*;
 
 
@@ -33,13 +38,13 @@ fn request_animation_frame(f: &Closure<dyn FnMut()>) {
 
 /// Holds all Gl stuff
 pub struct GlContext {
-    gl: WebGlRenderingContext,
-    canvas: HtmlCanvasElement,
-    camera: super::camera::Camera,
-    buffers: Buffers,
-    texture: Rc<WebGlTexture>,
+    pub gl: WebGlRenderingContext,
+    pub canvas: HtmlCanvasElement,
+    pub camera: super::camera::Camera,
+    pub buffers: Buffers,
+    pub texture: Rc<WebGlTexture>,
     // Contains program: WebGlProgram,
-    program_info: ProgramInfo,
+    pub program_info: ProgramInfo,
 }
 
 impl GlContext { pub fn new() -> Result<Self, JsValue> {
@@ -91,14 +96,19 @@ impl GlContext { pub fn new() -> Result<Self, JsValue> {
 
 }}
 
+ 
+//`*mut u8` cannot be shared between threads safel
+//lazy_static! {
+//    pub static ref CTX: Mutex<Arc<GlContext>> = Mutex::new(Arc::new(GlContext::new()));
+//}
+
 /// From MDN (translated) see html
 #[allow(dead_code)]
 pub fn canvas_gl2() -> Result<(), JsValue> {
-    let game = GameGl::new()
+    let mut game = GameGl::new()
         .expect("Creating game");
 
-    //let state = Some().take();
-    super::camera::attach_handlers(&game.gl_context.canvas)
+    game.attach_handlers()
         .expect("Cannot attach input");
 
     game.start_loop().
@@ -107,14 +117,54 @@ pub fn canvas_gl2() -> Result<(), JsValue> {
 }
 
 pub struct GameGl {
-    gl_context: GlContext,
+    pub store: Rc<RefCell<GlContext>>,
 }
 
 impl GameGl { pub fn new() -> Result<Self, JsValue> {
     Ok(Self {
-        gl_context: GlContext::new()?,
+        store: Rc::new(RefCell::new(GlContext::new()?)),
     })
 }}
+
+// the size for values of type `[(&str, dyn FnMut(MouseEvent))]` cannot be known at compilation time: doesn't have a size known at compile-time
+// explicit lifetime required in the type of `state`: lifetime `'static` required: static to state
+//pub fn attach_handlers(canvas: &HtmlCanvasElement, state: &'static mut State) -> Result<(), JsValue> {
+impl GameGl { pub fn attach_handlers(&mut self) -> Result<(), JsValue> {
+    //let toto: &mut f32 = &mut state.cube_rotation;
+
+    //let gl_context = self.store.borrow_mut();
+    //let canvas = &gl_context.canvas;
+    //super::camera::add_handler("mousedown", canvas, move |event: MouseEvent| {
+    //    input(1, event.client_x() as f32, event.client_y() as f32);
+    //    // Update game
+    //    //let gl_context = self.store.borrow_mut();
+    //    gl_context.camera.forward(1.0);
+    //    let mut state = STATE.lock().unwrap();
+    //    *state = Arc::new(State {
+    //        cube_rotation: state.cube_rotation + 1.0,
+    //        ..*state.clone()
+    //    });
+
+    //}).expect("Adding mousedown");
+
+    //super::camera::add_handler("mouseup", canvas, move |event: MouseEvent| {
+    //    input(2, event.client_x() as f32, event.client_y() as f32);
+    //}).expect("Adding mouseup");
+
+    //super::camera::add_handler("wheel", canvas, move |event: WheelEvent| {
+    //    event.prevent_default();
+    //    let zoom_amount: f32 = event.delta_y() as f32 / 50.;
+    //    input(3, zoom_amount, 0.);
+    //}).expect("Adding wheel");
+
+    //super::camera::add_handler("keydown", canvas, move |event: KeyboardEvent| {
+    //    let key = event.key_code() as f32;
+    //    input(4, key, 0.);
+    //}).expect("Adding keydown");
+
+    Ok(())
+}}
+
 
 impl GameGl { pub fn start_loop(self) -> Result<(), JsValue> {
     // Render loop
@@ -124,7 +174,6 @@ impl GameGl { pub fn start_loop(self) -> Result<(), JsValue> {
     const FPS_THROTTLE: f64 = 1000.0 / 60.0; // milliseconds / frames
     let mut previous: f64 = js_sys::Date::now();
     *g.borrow_mut() = Some(Closure::wrap(Box::new(move || {
-        //console::log_1(&"In loop".into());
         request_animation_frame(f.borrow().as_ref().unwrap());
 
         // Get time (miliseconds)
@@ -143,15 +192,17 @@ impl GameGl { pub fn start_loop(self) -> Result<(), JsValue> {
         // Update game
         {
             let mut state = STATE.lock().unwrap();
-            console::log_1(&(&*format!("Now {:?}", state.cube_rotation) as &str).into());
             *state = Arc::new(State {
                 cube_rotation: state.cube_rotation + delta_time as f32 * 0.001,
                 ..*state.clone()
             });
+            //let mut gl_context = self.store.borrow_mut();
+            //gl_context.camera.forward(0.01); 
         }
 
         // Draw
-        draw_scene(&self.gl_context).unwrap();
+        let gl_context = self.store.borrow_mut();
+        draw_scene(&gl_context).unwrap();
             //&self.gl, &self.program_info, &self.texture, &buffers, &state).unwrap();
 
     }) as Box<dyn FnMut()>));
@@ -173,7 +224,6 @@ pub fn draw_scene(ctx: &GlContext) -> Result<(), JsValue> {
     let gl = &ctx.gl;
 
     let  read_state = get_curr_state();
-    //console::log_1(&(&*format!("Now {:?}", state.cube_rotation) as &str).into());
 
     // Clear the canvas before we start drawing on it.
     gl.clear_color(0.3, 0.3, 0.3, 1.0);  // Clear to black, fully opaque
@@ -225,12 +275,14 @@ pub fn draw_scene(ctx: &GlContext) -> Result<(), JsValue> {
 
     // Set the drawing position to the "identity" point, which is
     // the center of the scene.
-    let model = Isometry3::new(
+    let mut model = Isometry3::new(
         // Translate
         Vector3::new(-0.0, 0.0, -6.0),
         // Rotate
         Vector3::new(0.2, 0.7, 0.3).scale(read_state.cube_rotation),
     );
+    let displace = ctx.camera.displace();
+    model *= displace;
     let model4 = model.to_homogeneous();
     let mat_model = model4.as_slice();
 
@@ -242,7 +294,6 @@ pub fn draw_scene(ctx: &GlContext) -> Result<(), JsValue> {
     //let mat_norm = norm4.to_homogeneous();
     let mat_norm = norm4.as_slice();
     //let msg: &str = &*format!("Norm: {:?}", mat_norm);
-    //console::log_2(&"Norm:".into(), &msg.into());
     //const normalMatrix = mat4.create();
     //mat4.invert(normalMatrix, modelViewMatrix);
     //mat4.transpose(normalMatrix, normalMatrix);

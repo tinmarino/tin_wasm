@@ -1,27 +1,54 @@
 /// From: https://github.com/chinedufn/webgl-water-tutorial/blob/master/src/app/store/camera.rs 
 use std::sync::Arc;
-use nalgebra::{Perspective3};  //, Isometry3, Point3, Vector3};
-use std::f32::consts::PI;
+use nalgebra::{
+    Perspective3,
+    Isometry3,
+    Vector3,
+    Translation3,
+};  //, Isometry3, Point3, Vector3};
 
+use super::constants::*;
 use crate::util::*;
 
 
 pub struct Camera {
-    projection: Perspective3<f32>,
+    pub projection: Perspective3<f32>,
+    pub displace: Isometry3<f32>,
 }
 
 impl Camera {
     pub fn new() -> Camera {
-        let fovy = PI / 3.0;
-
         Camera {
-            projection: Perspective3::new(fovy, 1.0, 0.1, 50.0),
+            projection: Perspective3::new(PI/3.0, 1.0, 0.1, 50.0),
+            displace: Isometry3::new(
+                Vector3::new(0., 0., 0.),
+                Vector3::new(0., 0., 0.),
+            ),
         }
     }
 
+    /// Retuns the uProjectionMatrix for uniform_matrix4fv_with_f32_array
     pub fn view(&self) -> &[f32] {
         // TODO auto convert to array [f32]
         self.projection.as_matrix().as_slice()
+    }
+
+    pub fn displace(&self) -> Isometry3<f32> {
+        self.displace
+    }
+
+    //pub fn displace(&self) -> [f32; 16] {
+    //    // TODO cloning
+    //    //let position = self.position.clone();
+    //    //
+    //    let mut res = [0.; 16];
+    //    res.copy_from_slice(self.position.to_homogeneous().as_slice());
+    //    res
+    //}
+
+    pub fn forward(&mut self, amount: f32) -> () {
+        self.displace.append_translation_mut(&Translation3::new(amount, amount, amount));
+        ()
     }
 }
 
@@ -37,46 +64,14 @@ use web_sys::{
 
 use js_sys::Function;
 use wasm_bindgen::prelude::Closure;
-use wasm_bindgen::JsCast;
+use wasm_bindgen::{ JsCast, JsValue };
 //use wasm_bindgen::prelude::*;
 
-use wasm_bindgen::{JsValue};
 use wasm_bindgen::convert::FromWasmAbi;
-
-// the size for values of type `[(&str, dyn FnMut(MouseEvent))]` cannot be known at compilation time: doesn't have a size known at compile-time
-// explicit lifetime required in the type of `state`: lifetime `'static` required: static to state
-//pub fn attach_handlers(canvas: &HtmlCanvasElement, state: &'static mut State) -> Result<(), JsValue> {
-pub fn attach_handlers(canvas: &HtmlCanvasElement) -> Result<(), JsValue> {
-    //let toto: &mut f32 = &mut state.cube_rotation;
-
-    add_handler("mousedown", canvas, move |event: MouseEvent| {
-        input(1, event.client_x() as f32, event.client_y() as f32);
-        // Update game
-        let mut state = STATE.lock().unwrap();
-        *state = Arc::new(State {
-            cube_rotation: state.cube_rotation + 1.0,
-            ..*state.clone()
-        });
-
-    }).expect("Adding mousedown");
-
-    add_handler("mouseup", canvas, move |event: MouseEvent| {
-        input(2, event.client_x() as f32, event.client_y() as f32);
-    }).expect("Adding mouseup");
-
-    add_handler("wheel", canvas, move |event: WheelEvent| {
-        event.prevent_default();
-        let zoom_amount: f32 = event.delta_y() as f32 / 50.;
-        input(3, zoom_amount, 0.);
-    }).expect("Adding wheel");
-
-    add_handler("keydown", canvas, move |event: KeyboardEvent| {
-        let key = event.key_code() as f32;
-        input(4, key, 0.);
-    }).expect("Adding keydown");
-
-    Ok(())
-}
+use std::rc::Rc;
+use std::cell::RefCell;
+//use super::webgl::GameGl;
+use super::webgl::GlContext;
 
 /// Helper mouse handler
 pub fn add_handler<T>(

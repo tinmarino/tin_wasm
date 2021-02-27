@@ -19,6 +19,7 @@ mod util_gl;
 mod canvas;
 mod webgl;
 mod camera;
+mod constants;
 
 // Called when the wasm module is instantiated
 #[wasm_bindgen(start)]
