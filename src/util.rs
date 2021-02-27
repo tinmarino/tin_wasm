@@ -1,8 +1,13 @@
 /// Utilities
 use wasm_bindgen::{ JsCast, JsValue };
 use web_sys::{
-    console,
+    // console,
+    HtmlCanvasElement,
 };
+
+use js_sys::Function;
+use wasm_bindgen::prelude::Closure;
+use wasm_bindgen::convert::FromWasmAbi;
 
 
 use std::sync::Arc;
@@ -33,16 +38,20 @@ lazy_static! {
 
 /// Track game state, 3d positions
 pub struct State {
+    // The current cube rotation (to make it turn)
     pub cube_rotation: f32,
     // x, y, z translation speed
-    pub speed: [f32; 3],
+    pub position: [f32; 3],
+    // Current rotation speed, sclaed vector
+    pub target: [f32; 3],
 }
 
 impl State {
     /// Init internal game state variables
     pub fn new() -> Self { Self {
         cube_rotation: 0.0,
-        speed: [0.0, 0.0, 0.0],
+        position: [0.0, 0.0, 0.0],
+        target: [0.0, 0.0, 0.0],
     }}
 }
 
@@ -67,4 +76,18 @@ pub fn create_canvas(id: &str) -> Result<web_sys::HtmlCanvasElement, JsValue>{
 
 pub fn window() -> web_sys::Window {
     web_sys::window().expect("no global `window` exists")
+}
+
+/// Helper mouse handler
+pub fn add_handler<T>(
+        name: &str,
+        canvas: &HtmlCanvasElement,
+        closure: impl FnMut(T) + 'static)
+    -> Result<(), JsValue>
+        where T: FromWasmAbi + 'static {
+        //where F: FnMut(MouseEvent) + 'static{
+    let handler = Closure::wrap(Box::new(closure) as Box<dyn FnMut(_)>);
+    canvas.add_event_listener_with_callback(name, handler.as_ref().unchecked_ref() as &Function)?;
+    handler.forget();
+    Ok(())
 }

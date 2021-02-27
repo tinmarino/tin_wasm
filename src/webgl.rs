@@ -28,6 +28,10 @@ use std::sync::Arc;
 use super::constants::*;
 //use crate::camera::*;
 
+// Touch speed
+const TS: f32 = 0.1;
+// Rotate Speed
+const RS: f32 = 0.01;
 
 /// From: https://github.com/rustwasm/wasm-bindgen/blob/master/examples/request-animation-frame/src/lib.rs
 fn request_animation_frame(f: &Closure<dyn FnMut()>) {
@@ -134,6 +138,14 @@ pub fn input(key: i32, x: f32, y:f32){
     //let gl_context = self.store.borrow_mut();
 }
 
+pub fn add_array(a: [f32; 3], b:[f32; 3]) -> [f32; 3] {
+    //let a = [0, 1, 2, 3, 4];
+    let mut c = [0.0; 3];
+    for i in 0..3 {
+        c[i] = a[i] + b[i];
+    }
+    c
+}
 
 // the size for values of type `[(&str, dyn FnMut(MouseEvent))]` cannot be known at compilation time: doesn't have a size known at compile-time
 // explicit lifetime required in the type of `state`: lifetime `'static` required: static to state
@@ -141,26 +153,26 @@ pub fn input(key: i32, x: f32, y:f32){
 pub fn attach_handlers(canvas: &HtmlCanvasElement, game: Rc<GameGl>) -> Result<(), JsValue> {
     //let toto: &mut f32 = &mut state.cube_rotation;
 
-    { let game = Rc::clone(&game);
-    super::camera::add_handler("mousedown", canvas, move |event: MouseEvent| {
+    { //let game = Rc::clone(&game);
+    add_handler("mousedown", canvas, move |event: MouseEvent| {
         input(1, event.client_x() as f32, event.client_y() as f32);
-        let mut gl_context =  game.store.borrow_mut();
-        //gl_context.camera.forward(1.0);
-        let mut state = STATE.lock().unwrap();
-        *state = Arc::new(State {
-            cube_rotation: state.cube_rotation + 1.0,
-            ..*state.clone()
-        });
+        //let mut gl_context =  game.store.borrow_mut();
+        ////gl_context.camera.forward(1.0);
+        //let mut state = STATE.lock().unwrap();
+        //*state = Arc::new(State {
+        //    cube_rotation: state.cube_rotation + 1.0,
+        //    ..*state.clone()
+        //});
 
     }).expect("Adding mousedown");
     }
 
-    super::camera::add_handler("mouseup", canvas, move |event: MouseEvent| {
+    add_handler("mouseup", canvas, move |event: MouseEvent| {
         input(2, event.client_x() as f32, event.client_y() as f32);
     }).expect("Adding mouseup");
 
     { let game = Rc::clone(&game);
-    super::camera::add_handler("wheel", canvas, move |event: WheelEvent| {
+    add_handler("wheel", canvas, move |event: WheelEvent| {
         event.prevent_default();
         let zoom_amount: f32 = event.delta_y() as f32 / 50.;
         let mut gl_context = game.store.borrow_mut();
@@ -169,23 +181,62 @@ pub fn attach_handlers(canvas: &HtmlCanvasElement, game: Rc<GameGl>) -> Result<(
     }).expect("Adding wheel");
     }
 
-    super::camera::add_handler("keydown", canvas, move |event: KeyboardEvent| {
-        let key = event.key_code() as f32;
-        input(4, key, 0.);
-        let speed = 0.1;
-        let tran: [f32; 3] = match key  as u32 {
-            JS_KEY_W => [ 0., 0., -speed],
-            JS_KEY_S => [ 0., 0.,  speed],
-            JS_KEY_A => [-speed,  0.,  0.],
-            JS_KEY_D => [speed,  0.,  0.],
-            _ => [0.0, 0.0, 0.0],
-        };
-        let mut state = STATE.lock().unwrap();
-        *state = Arc::new(State {
-            speed: tran,
-            ..*state.clone()
-        });
+    { let game = Rc::clone(&game);
+    add_handler("keydown", canvas, move |event: KeyboardEvent| {
+        let key = event.key_code() as u32;
+        //// Get speed matrix
+        //let speed:[f32; 3];
+        //{
+        //    speed = get_curr_state().speed;
+        //}
+        input(4, key as f32, 0.);
+        let mut gl_context = game.store.borrow_mut();
+        gl_context.camera.keys_down.insert(key);
+        
+        //let translate: [f32; 3] = match key  as u32 {
+        //    JS_KEY_W => [ 0., 0., -TS],
+        //    JS_KEY_S => [ 0., 0., TS],
+        //    JS_KEY_A => [-TS, 0., 0.],
+        //    JS_KEY_D => [TS, 0., 0.],
+        //    _ => [0.0, 0.0, 0.0],
+        //};
+        //let target: [f32; 3] = match key as u32 {
+        //    JS_KEY_LEFT => [0., 0., RS],
+        //    JS_KEY_RIGHT => [0., 0., -RS],
+        //    JS_KEY_UP => [RS, 0., 0.],
+        //    JS_KEY_DOWN => [-RS, 0., -RS],
+        //    _ => [0.0, 0.0, 0.0],
+        //};
+        //let mut state = STATE.lock().unwrap();
+        //*state = Arc::new(State {
+        //    position: add_array(state.position, translate),
+        //    target: add_array(state.target, target),
+        //    ..*state.clone()
+        //});
     }).expect("Adding keydown");
+    }
+
+    { let game = Rc::clone(&game);
+    add_handler("keyup", canvas, move |event: KeyboardEvent| {
+        let key = event.key_code() as u32;
+        input(5, key as f32, 0.);
+        let mut gl_context = game.store.borrow_mut();
+        gl_context.camera.keys_down.remove(&key);
+        //let mut tran: [f32; 3] = match key  as u32 {
+        //    JS_KEY_W => [ 0., 0., TS],
+        //    JS_KEY_S => [ 0., 0., -TS],
+        //    JS_KEY_A => [TS,  0.,  0.],
+        //    JS_KEY_D => [-TS,  0.,  0.],
+        //    _ => [0.0, 0.0, 0.0],
+        //};
+        //tran = add_array(speed, tran);
+        //let mut state = STATE.lock().unwrap();
+        //*state = Arc::new(State {
+        //    speed: tran,
+        //    ..*state.clone()
+        //});
+    }).expect("Adding keydown");
+    }
 
     Ok(())
 }
@@ -211,7 +262,7 @@ pub fn start_loop(game: Rc<GameGl>) -> Result<(), JsValue> {
         }
 
         // Update time
-        let delta_time = now - previous;
+        //let delta_time = now - previous;
         previous = now;
 
         // Update game
@@ -222,12 +273,44 @@ pub fn start_loop(game: Rc<GameGl>) -> Result<(), JsValue> {
         //        ..*state.clone()
         //    });
         //}
+        // Update camera
+        let keys;
+        {
+            // TODO speed must be added in update loop and no input
+            let mut gl_context = game.store.borrow_mut();
+            keys = &gl_context.camera.keys_down;
+            for key in keys {
+                let translate: [f32; 3] = match *key as u32 {
+                    JS_KEY_W => [ 0., 0., -TS],
+                    JS_KEY_S => [ 0., 0., TS],
+                    JS_KEY_A => [-TS, 0., 0.],
+                    JS_KEY_D => [TS, 0., 0.],
+                    _ => [0.0, 0.0, 0.0],
+                };
+                //let mut gl_context = game.store.borrow_mut();
+                //gl_context.camera.translate_arr(translate); 
+                let target: [f32; 3] = match *key as u32 {
+                    JS_KEY_LEFT => [0., 0., RS],
+                    JS_KEY_RIGHT => [0., 0., -RS],
+                    JS_KEY_UP => [RS, 0., 0.],
+                    JS_KEY_DOWN => [-RS, 0., -RS],
+                    _ => [0.0, 0.0, 0.0],
+                };
+                let mut state = STATE.lock().unwrap();
+                *state = Arc::new(State {
+                    position: add_array(state.position, translate),
+                    target: add_array(state.target, target),
+                    ..*state.clone()
+                });
+            }
+        }
+
+
         {
             let read_state = get_curr_state();
             let mut gl_context = game.store.borrow_mut();
-
-web_sys::console::log_1(&(&*format!("Now {:?}", read_state.speed) as &str).into());
-            gl_context.camera.translate_arr(read_state.speed); 
+            gl_context.camera.translate_arr(read_state.position); 
+            //gl_context.camera.rotate_arr(read_state.rotate); 
         }
 
         // Draw
@@ -298,7 +381,7 @@ pub fn draw_scene(ctx: &GlContext) -> Result<(), JsValue> {
     // let perspective: Perspective3<f32> = Perspective3::new(
     //     45.0 * 3.14 / 180.0, 1.0, 0.1, 100.0);
     // let mat_projection = perspective.as_matrix().as_slice();
-    let mat_projection = ctx.camera.view();
+    let mat_projection = ctx.camera.project();
     //let mut camera_pos = [camera_pos.x, camera_pos.y, camera_pos.z];
     //gl.uniform3fv_with_f32_array(camera_pos_uni.as_ref(), &mut camera_pos);
     //gl.uniform1i(mesh_texture_uni.as_ref(), TextureUnit::Stone.texture_unit());
@@ -311,8 +394,8 @@ pub fn draw_scene(ctx: &GlContext) -> Result<(), JsValue> {
         // Rotate
         Vector3::new(0.2, 0.7, 0.3).scale(read_state.cube_rotation),
     );
-    let displace = ctx.camera.displace();
-    model *= displace;
+    let view = ctx.camera.view();
+    model *= view;
     let model4 = model.to_homogeneous();
     let mat_model = model4.as_slice();
 
