@@ -37,14 +37,13 @@ impl Camera {
         self.displace
     }
 
-    //pub fn displace(&self) -> [f32; 16] {
-    //    // TODO cloning
-    //    //let position = self.position.clone();
-    //    //
-    //    let mut res = [0.; 16];
-    //    res.copy_from_slice(self.position.to_homogeneous().as_slice());
-    //    res
-    //}
+    pub fn translate_arr(&mut self, a: [f32; 3]){
+        self.displace.append_translation_mut(&Translation3::new(a[0], a[1], a[2]));
+    }
+
+    pub fn translate_3(&mut self, x:f32, y:f32, z:f32){
+        self.displace.append_translation_mut(&Translation3::new(x, y, z));
+    }
 
     pub fn forward(&mut self, amount: f32) -> () {
         self.displace.append_translation_mut(&Translation3::new(amount, amount, amount));

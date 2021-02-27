@@ -25,6 +25,7 @@ use crate::util_gl::*;
 use std::sync::Arc;
 //use std::sync::Mutex;
 
+use super::constants::*;
 //use crate::camera::*;
 
 
@@ -144,7 +145,7 @@ pub fn attach_handlers(canvas: &HtmlCanvasElement, game: Rc<GameGl>) -> Result<(
     super::camera::add_handler("mousedown", canvas, move |event: MouseEvent| {
         input(1, event.client_x() as f32, event.client_y() as f32);
         let mut gl_context =  game.store.borrow_mut();
-        gl_context.camera.forward(1.0);
+        //gl_context.camera.forward(1.0);
         let mut state = STATE.lock().unwrap();
         *state = Arc::new(State {
             cube_rotation: state.cube_rotation + 1.0,
@@ -171,6 +172,19 @@ pub fn attach_handlers(canvas: &HtmlCanvasElement, game: Rc<GameGl>) -> Result<(
     super::camera::add_handler("keydown", canvas, move |event: KeyboardEvent| {
         let key = event.key_code() as f32;
         input(4, key, 0.);
+        let speed = 0.1;
+        let tran: [f32; 3] = match key  as u32 {
+            JS_KEY_W => [ 0., 0., -speed],
+            JS_KEY_S => [ 0., 0.,  speed],
+            JS_KEY_A => [-speed,  0.,  0.],
+            JS_KEY_D => [speed,  0.,  0.],
+            _ => [0.0, 0.0, 0.0],
+        };
+        let mut state = STATE.lock().unwrap();
+        *state = Arc::new(State {
+            speed: tran,
+            ..*state.clone()
+        });
     }).expect("Adding keydown");
 
     Ok(())
@@ -201,14 +215,19 @@ pub fn start_loop(game: Rc<GameGl>) -> Result<(), JsValue> {
         previous = now;
 
         // Update game
+        //{
+        //    let mut state = STATE.lock().unwrap();
+        //    *state = Arc::new(State {
+        //        cube_rotation: state.cube_rotation + delta_time as f32 * 0.001,
+        //        ..*state.clone()
+        //    });
+        //}
         {
-            let mut state = STATE.lock().unwrap();
-            *state = Arc::new(State {
-                cube_rotation: state.cube_rotation + delta_time as f32 * 0.001,
-                ..*state.clone()
-            });
-            //let mut gl_context = self.store.borrow_mut();
-            //gl_context.camera.forward(0.01); 
+            let read_state = get_curr_state();
+            let mut gl_context = game.store.borrow_mut();
+
+web_sys::console::log_1(&(&*format!("Now {:?}", read_state.speed) as &str).into());
+            gl_context.camera.translate_arr(read_state.speed); 
         }
 
         // Draw
@@ -234,7 +253,7 @@ pub fn draw_scene(ctx: &GlContext) -> Result<(), JsValue> {
         //) -> Result<(), JsValue> {
     let gl = &ctx.gl;
 
-    let  read_state = get_curr_state();
+    let read_state = get_curr_state();
 
     // Clear the canvas before we start drawing on it.
     gl.clear_color(0.3, 0.3, 0.3, 1.0);  // Clear to black, fully opaque

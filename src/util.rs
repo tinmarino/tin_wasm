@@ -34,13 +34,15 @@ lazy_static! {
 /// Track game state, 3d positions
 pub struct State {
     pub cube_rotation: f32,
+    // x, y, z translation speed
+    pub speed: [f32; 3],
 }
 
 impl State {
     /// Init internal game state variables
-    //pub fn new() -> Result<Self, JsValue> { Ok(Self {
     pub fn new() -> Self { Self {
         cube_rotation: 0.0,
+        speed: [0.0, 0.0, 0.0],
     }}
 }
 

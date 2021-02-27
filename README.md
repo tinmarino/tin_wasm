@@ -21,7 +21,7 @@ git clone https://github.com/tinmarino/tin_wasm.git && cd tin_wasm.git
 
 # TODO
 
-* Vim, better rust support (jump, doc, completion with keystrokes)
+* Vim, better rust support (fold, jump, doc, completion with keystrokes)
 * Create my constans.rs with PI and keystrokes
 * Create other HelloWorld Project with hardcoded matrix where possible
 * Move view <- webgl water
