@@ -23,7 +23,7 @@ use crate::util::*;
 use crate::util_gl::*;
 
 use std::sync::Arc;
-use std::sync::Mutex;
+//use std::sync::Mutex;
 
 //use crate::camera::*;
 
@@ -105,14 +105,16 @@ impl GlContext { pub fn new() -> Result<Self, JsValue> {
 /// From MDN (translated) see html
 #[allow(dead_code)]
 pub fn canvas_gl2() -> Result<(), JsValue> {
-    let mut game = GameGl::new()
-        .expect("Creating game");
+    let game: Rc<GameGl> = Rc::new(GameGl::new()
+        .expect("Creating game"));
 
-    game.attach_handlers()
+    let gl_context = game.store.borrow_mut();
+    let canvas = &gl_context.canvas;
+    attach_handlers(canvas, Rc::clone(&game))
         .expect("Cannot attach input");
 
-    game.start_loop().
-        expect("Launching game loop");
+    start_loop(Rc::clone(&game))
+        .expect("Launching game loop");
     Ok(())
 }
 
@@ -126,47 +128,56 @@ impl GameGl { pub fn new() -> Result<Self, JsValue> {
     })
 }}
 
+pub fn input(key: i32, x: f32, y:f32){
+    console::log_1(&(&*format!("Calledback {:?}, {:?}, {:?}", key, x, y) as &str).into());
+    //let gl_context = self.store.borrow_mut();
+}
+
+
 // the size for values of type `[(&str, dyn FnMut(MouseEvent))]` cannot be known at compilation time: doesn't have a size known at compile-time
 // explicit lifetime required in the type of `state`: lifetime `'static` required: static to state
 //pub fn attach_handlers(canvas: &HtmlCanvasElement, state: &'static mut State) -> Result<(), JsValue> {
-impl GameGl { pub fn attach_handlers(&mut self) -> Result<(), JsValue> {
+pub fn attach_handlers(canvas: &HtmlCanvasElement, game: Rc<GameGl>) -> Result<(), JsValue> {
     //let toto: &mut f32 = &mut state.cube_rotation;
 
-    //let gl_context = self.store.borrow_mut();
-    //let canvas = &gl_context.canvas;
-    //super::camera::add_handler("mousedown", canvas, move |event: MouseEvent| {
-    //    input(1, event.client_x() as f32, event.client_y() as f32);
-    //    // Update game
-    //    //let gl_context = self.store.borrow_mut();
-    //    gl_context.camera.forward(1.0);
-    //    let mut state = STATE.lock().unwrap();
-    //    *state = Arc::new(State {
-    //        cube_rotation: state.cube_rotation + 1.0,
-    //        ..*state.clone()
-    //    });
+    { let game = Rc::clone(&game);
+    super::camera::add_handler("mousedown", canvas, move |event: MouseEvent| {
+        input(1, event.client_x() as f32, event.client_y() as f32);
+        let mut gl_context =  game.store.borrow_mut();
+        gl_context.camera.forward(1.0);
+        let mut state = STATE.lock().unwrap();
+        *state = Arc::new(State {
+            cube_rotation: state.cube_rotation + 1.0,
+            ..*state.clone()
+        });
 
-    //}).expect("Adding mousedown");
+    }).expect("Adding mousedown");
+    }
 
-    //super::camera::add_handler("mouseup", canvas, move |event: MouseEvent| {
-    //    input(2, event.client_x() as f32, event.client_y() as f32);
-    //}).expect("Adding mouseup");
+    super::camera::add_handler("mouseup", canvas, move |event: MouseEvent| {
+        input(2, event.client_x() as f32, event.client_y() as f32);
+    }).expect("Adding mouseup");
 
-    //super::camera::add_handler("wheel", canvas, move |event: WheelEvent| {
-    //    event.prevent_default();
-    //    let zoom_amount: f32 = event.delta_y() as f32 / 50.;
-    //    input(3, zoom_amount, 0.);
-    //}).expect("Adding wheel");
+    { let game = Rc::clone(&game);
+    super::camera::add_handler("wheel", canvas, move |event: WheelEvent| {
+        event.prevent_default();
+        let zoom_amount: f32 = event.delta_y() as f32 / 50.;
+        let mut gl_context = game.store.borrow_mut();
+        gl_context.camera.forward(zoom_amount);
+        input(3, zoom_amount, 0.);
+    }).expect("Adding wheel");
+    }
 
-    //super::camera::add_handler("keydown", canvas, move |event: KeyboardEvent| {
-    //    let key = event.key_code() as f32;
-    //    input(4, key, 0.);
-    //}).expect("Adding keydown");
+    super::camera::add_handler("keydown", canvas, move |event: KeyboardEvent| {
+        let key = event.key_code() as f32;
+        input(4, key, 0.);
+    }).expect("Adding keydown");
 
     Ok(())
-}}
+}
 
 
-impl GameGl { pub fn start_loop(self) -> Result<(), JsValue> {
+pub fn start_loop(game: Rc<GameGl>) -> Result<(), JsValue> {
     // Render loop
     // Dont ask me
     let f = Rc::new(RefCell::new(None));
@@ -201,7 +212,7 @@ impl GameGl { pub fn start_loop(self) -> Result<(), JsValue> {
         }
 
         // Draw
-        let gl_context = self.store.borrow_mut();
+        let gl_context = game.store.borrow_mut();
         draw_scene(&gl_context).unwrap();
             //&self.gl, &self.program_info, &self.texture, &buffers, &state).unwrap();
 
@@ -211,7 +222,7 @@ impl GameGl { pub fn start_loop(self) -> Result<(), JsValue> {
     request_animation_frame(g.borrow().as_ref().unwrap());
     //let program_info = 
     Ok(())
-}}
+}
 
 #[allow(dead_code)]
 pub fn draw_scene(ctx: &GlContext) -> Result<(), JsValue> {

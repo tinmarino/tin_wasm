@@ -44,11 +44,6 @@ impl State {
     }}
 }
 
-pub fn input(key: i32, x: f32, y:f32){
-    console::log_1(&(&*format!("Calledback {:?}, {:?}, {:?}", key, x, y) as &str).into());
-}
-
-
 
 /// Append a canvas to main window
 pub fn create_canvas(id: &str) -> Result<web_sys::HtmlCanvasElement, JsValue>{
