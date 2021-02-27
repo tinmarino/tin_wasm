@@ -80,20 +80,16 @@ impl Camera {
 
     /// Get the view matrix -> Self position rotation
     pub fn view(&self) -> Isometry3<f32> {
-        self.displace.inverse()
-    }
-
-    pub fn new_frame(&mut self){
-        let state = get_curr_state();
-
-        let x = state.position;
+        //self.displace.inverse()
+        let x = self.position;
         let eye = Point3::new(x[0], x[1], x[2]);
 
-        let x = state.target;
+        let x = self.target;
         let target = Point3::new(x[0], x[1], x[2]);
 
-        Isometry3::look_at_rh(&eye, &target, &Vector3::y());
+        Isometry3::look_at_rh(&eye, &target, &Vector3::y())
     }
+
     /// Append translation
     pub fn translate_arr(&mut self, a: [f32; 3]){
         self.displace.append_translation_mut(&Translation3::new(a[0], a[1], a[2]));
