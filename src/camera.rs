@@ -28,9 +28,6 @@ const TS: f32 = 0.1;
 // Rotate Speed
 const RS: f32 = 0.01;
 
-const YAW_STEP: f32 = 0.005;
-const PITCH_STEP: f32 = 0.005;
-
 
 pub struct Camera {
     pub keys_down: HashSet<u32>,
@@ -39,8 +36,6 @@ pub struct Camera {
 
     pub projection: Perspective3<f32>,
     pub displace: Isometry3<f32>,
-    pub yaw: f32,
-    pub pitch: f32,
 
     pub rotation_to_y_up: UnitQuaternion<f32>,
     //pub translate: Translation3<f32>,
@@ -52,15 +47,13 @@ impl Camera {
         Camera {
             keys_down: HashSet::with_capacity(32),
             position: [0.0, 0.0, -6.0],
-            target: [0.0, 0.0, 0.0],
+            target: [- PI/2.0, -PI/2.0, 0.0],
             projection: Perspective3::new(PI/3.0, 1.0, 0.1, 50.0),
             // A matrix of self displacement
             displace: Isometry3::new(
                 Vector3::new(0., 0., 0.),
                 Vector3::new(0., 0., 0.),
             ),
-            yaw: 0.0,
-            pitch: 0.0,
             rotation_to_y_up: UnitQuaternion::rotation_between_axis(&Vector3::y_axis(), &Vector3::y_axis())
                 .unwrap_or_else(|| {
                     UnitQuaternion::from_axis_angle(&Vector3::x_axis(), std::f32::consts::PI)
@@ -69,16 +62,6 @@ impl Camera {
             //translate: Matrix3::new(0., 0., 6.),
             //rotate: Rotation3::new(0., 0., 0.),
         }
-    }
-
-    /// The point the camera is looking at.
-    pub fn at(&self) -> Point3<f32> {
-        let x = self.position;
-        let view_eye = self.rotation_to_y_up * Point3::new(x[0], x[1], x[2]); //self.eye;
-        let ax = view_eye.x + self.yaw.cos() * self.pitch.sin();
-        let ay = view_eye.y + self.pitch.cos();
-        let az = view_eye.z + self.yaw.sin() * self.pitch.sin();
-        self.rotation_to_y_up.inverse() * Point3::new(ax, ay, az)
     }
 
     pub fn key_press(&mut self, key: u32) -> () {
@@ -91,8 +74,8 @@ impl Camera {
         };
         self.position = add_array3(self.position, translate);
         let rotate = match key {
-            JS_KEY_LEFT => [ 0., 0., -RS],
-            JS_KEY_RIGHT => [ 0., 0., RS],
+            JS_KEY_LEFT => [ 0., -RS, 0.],
+            JS_KEY_RIGHT => [ 0., RS, 0.],
             JS_KEY_DOWN => [-RS, 0., 0.],
             JS_KEY_UP => [RS, 0., 0.],
             _ => [0.0, 0.0, 0.0],
@@ -109,16 +92,19 @@ impl Camera {
 
 
     pub fn get_model(&self) -> Isometry3<f32> {
-        let x = self.position;
-        let model = Isometry3::new(
-            // Translate
-            //Vector3::new(-0.0, 0.0, -6.0),
-            Vector3::new(x[0], x[1], x[2]),
-            // Rotate
-            //Vector3::new(0.2, 0.7, 0.3).scale(read_state.cube_rotation),
-            Vector3::new(0.0, 0.0, 0.0),
-        );
-        model.clone()
+        self.view()
+        //let x = self.position;
+        //let y = self.target;
+        //let model = Isometry3::new(
+        //    // Translate
+        //    //Vector3::new(-0.0, 0.0, -6.0),
+        //    Vector3::new(x[0], x[1], x[2]),
+        //    // Rotate
+        //    //Vector3::new(0.2, 0.7, 0.3).scale(read_state.cube_rotation),
+        //    Vector3::new(-y[0], -y[1], -y[2]),
+        //    //Vector3::new(0),
+        //);
+        //model.clone()
     }
 
     pub fn update_model(&self) -> [f32; 16] {
@@ -134,8 +120,6 @@ impl Camera {
         arr_model.copy_from_slice(mat_model.as_slice());
 
         arr_model
-
-
 
         //let mut mat_model = model.to_homogeneous();
 
@@ -154,6 +138,19 @@ impl Camera {
         //mat_model
     }
 
+    /// The point the camera is looking at.
+    pub fn at(&self) -> Point3<f32> {
+        let x = self.position;
+        let (pitch, yaw) = (self.target[0], self.target[1]);
+
+        web_sys::console::log_1(&(&*format!("Isometry {:?} | {:?}", pitch, yaw) as &str).into());
+        let view_eye = self.rotation_to_y_up * Point3::new(x[0], x[1], x[2]); //self.eye;
+        let ax = view_eye.x + yaw.cos() * pitch.sin();
+        let ay = view_eye.y + pitch.cos();
+        let az = view_eye.z + yaw.sin() * pitch.sin();
+        self.rotation_to_y_up.inverse() * Point3::new(ax, ay, az)
+    }
+
 
     /// Copy to keep me immutable
     pub fn get_keys_down(&self) -> HashSet<u32> {
@@ -168,11 +165,19 @@ impl Camera {
     /// Get the view matrix -> Self position rotation
     pub fn view(&self) -> Isometry3<f32> {
         let x = self.position;
+        let y = self.target;
         let eye = Point3::new(x[0], x[1], x[2]);
-        let at = Point3::new(0, 0, 0);
+        let target = Point3::new(y[0], y[1], y[2]);
 
-        web_sys::console::log_1(&(&*format!("Eye {:?}", eye) as &str).into());
-        web_sys::console::log_1(&(&*format!("At {:?}", at) as &str).into());
-        Isometry3::look_at_rh(&eye, &self.at(), &Vector3::y())
+        //web_sys::console::log_1(&(&*format!("Eye {:?}", eye) as &str).into());
+        //web_sys::console::log_1(&(&*format!("At {:?}", target) as &str).into());
+        //let iso = Isometry3::look_at_rh(&eye, &self.at(), &Vector3::y());
+        let att = self.at();
+        // Got: [0.0, 1.0, -6.0] 
+        // want: [-0.21248557, -0.3540449, -5.28923]
+        let iso = Isometry3::look_at_rh(&eye, &att, &Vector3::y());
+        web_sys::console::log_1(&(&*format!("Isometry {:?}", att) as &str).into());
+        //web_sys::console::log_1(&(&*format!("Isometry {:?}", iso) as &str).into());
+        iso
     }
 }
