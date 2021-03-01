@@ -17,7 +17,6 @@ use web_sys::{
     KeyboardEvent,
     //WebGlUniformLocation,
 };
-use nalgebra::{ Isometry3, Vector3 };
 
 use crate::util::*;
 use crate::util_gl::*;
@@ -93,16 +92,9 @@ impl GlContext { pub fn new() -> Result<Self, JsValue> {
         texture: texture,
         program_info: program_info,
     })
-
 }}
 
  
-//`*mut u8` cannot be shared between threads safel
-//lazy_static! {
-//    pub static ref CTX: Mutex<Arc<GlContext>> = Mutex::new(Arc::new(GlContext::new()));
-//}
-
-/// From MDN (translated) see html
 #[allow(dead_code)]
 pub fn canvas_gl2() -> Result<(), JsValue> {
     let game: Rc<GameGl> = Rc::new(GameGl::new()
@@ -130,7 +122,6 @@ impl GameGl { pub fn new() -> Result<Self, JsValue> {
 
 pub fn input(key: i32, x: f32, y:f32){
     console::log_1(&(&*format!("Calledback {:?}, {:?}, {:?}", key, x, y) as &str).into());
-    //let gl_context = self.store.borrow_mut();
 }
 
 
@@ -242,8 +233,6 @@ pub fn draw_scene(ctx: &GlContext) -> Result<(), JsValue> {
         //) -> Result<(), JsValue> {
     let gl = &ctx.gl;
 
-    let read_state = get_curr_state();
-
     // Clear the canvas before we start drawing on it.
     gl.clear_color(0.3, 0.3, 0.3, 1.0);  // Clear to black, fully opaque
     gl.clear_depth(1.0);                 // Clear everything
@@ -295,8 +284,9 @@ pub fn draw_scene(ctx: &GlContext) -> Result<(), JsValue> {
     // Set the drawing position to the "identity" point, which is
     // the center of the scene.
     
-    let mat_model = ctx.camera.update_model();
-    let model = ctx.camera.get_model();
+    let model = ctx.camera.view();
+    let homo = model.to_homogeneous();
+    let mat_model = homo.as_slice();
 
     // Fill normal buffer
     let mut norm = model.clone();

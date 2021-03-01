@@ -5,179 +5,146 @@
 /// More:
 /// * Explaination: https://webglfundamentals.org/webgl/lessons/webgl-3d-camera.html
 /// * Code: https://github.com/sebcrozet/kiss3d/blob/master/src/camera/first_person.rs
-//use std::sync::Arc;
-//use crate::util::*;
 extern crate nalgebra as na;
 use nalgebra::{
     Perspective3,
     Isometry3,
     Vector3,
     Point3,
-    Translation3,
-    Rotation3,
     UnitQuaternion,
 };
+
 use super::constants::*;
-use super::util::*;
+//use super::util::*;
 use std::collections::HashSet;
 
 
 
-// Touch speed
+// Translate speed
 const TS: f32 = 0.1;
 // Rotate Speed
-const RS: f32 = 0.01;
+const RS: f32 = 0.03;
 
 
 pub struct Camera {
-    pub keys_down: HashSet<u32>,
     pub position: [f32; 3],
-    pub target: [f32; 3],
-
+    pub pitch: f32,
+    pub yaw: f32,
+    pub keys_down: HashSet<u32>,
     pub projection: Perspective3<f32>,
-    pub displace: Isometry3<f32>,
+}
 
-    pub rotation_to_y_up: UnitQuaternion<f32>,
-    //pub translate: Translation3<f32>,
-    //pub rotate: Rotation3<f32>,
+lazy_static!{
+    static ref ROTATION_TO_Y_UP: UnitQuaternion<f32> = UnitQuaternion::rotation_between_axis(&Vector3::y_axis(), &Vector3::y_axis())
+        .unwrap_or_else(|| {
+            UnitQuaternion::from_axis_angle(&Vector3::x_axis(), std::f32::consts::PI)
+        });
 }
 
 impl Camera {
     pub fn new() -> Camera {
         Camera {
-            keys_down: HashSet::with_capacity(32),
             position: [0.0, 0.0, -6.0],
-            target: [- PI/2.0, -PI/2.0, 0.0],
+            pitch: -PI/2.0,
+            yaw: -PI/2.0,
+            keys_down: HashSet::with_capacity(32),
             projection: Perspective3::new(PI/3.0, 1.0, 0.1, 50.0),
-            // A matrix of self displacement
-            displace: Isometry3::new(
-                Vector3::new(0., 0., 0.),
-                Vector3::new(0., 0., 0.),
-            ),
-            rotation_to_y_up: UnitQuaternion::rotation_between_axis(&Vector3::y_axis(), &Vector3::y_axis())
-                .unwrap_or_else(|| {
-                    UnitQuaternion::from_axis_angle(&Vector3::x_axis(), std::f32::consts::PI)
-                }),
-
-            //translate: Matrix3::new(0., 0., 6.),
-            //rotate: Rotation3::new(0., 0., 0.),
         }
     }
 
-    pub fn key_press(&mut self, key: u32) -> () {
-        let translate = match key {
-            JS_KEY_W => [ 0., 0., -TS],
-            JS_KEY_S => [ 0., 0., TS],
-            JS_KEY_A => [-TS, 0., 0.],
-            JS_KEY_D => [TS, 0., 0.],
-            _ => [0.0, 0.0, 0.0],
-        };
-        self.position = add_array3(self.position, translate);
-        let rotate = match key {
-            JS_KEY_LEFT => [ 0., -RS, 0.],
-            JS_KEY_RIGHT => [ 0., RS, 0.],
-            JS_KEY_DOWN => [-RS, 0., 0.],
-            JS_KEY_UP => [RS, 0., 0.],
-            _ => [0.0, 0.0, 0.0],
-        };
-        self.target = add_array3(self.target, rotate);
-    }
-
-    /// Update according to key pressed
+    /// Update in game loop according to (async) key pressed
     pub fn update(&mut self) {
         for key in self.get_keys_down() {
             self.key_press(key);
         }
     }
 
-
-    pub fn get_model(&self) -> Isometry3<f32> {
-        self.view()
-        //let x = self.position;
-        //let y = self.target;
-        //let model = Isometry3::new(
-        //    // Translate
-        //    //Vector3::new(-0.0, 0.0, -6.0),
-        //    Vector3::new(x[0], x[1], x[2]),
-        //    // Rotate
-        //    //Vector3::new(0.2, 0.7, 0.3).scale(read_state.cube_rotation),
-        //    Vector3::new(-y[0], -y[1], -y[2]),
-        //    //Vector3::new(0),
-        //);
-        //model.clone()
+    /// Helper: Copy to keep me immutable
+    pub fn get_keys_down(&self) -> HashSet<u32> {
+        self.keys_down.clone()
     }
 
-    pub fn update_model(&self) -> [f32; 16] {
-        let mut mat_model = self.get_model().to_homogeneous();
-        //let mat_view = self.view().to_homogeneous();
+    /// Try to translate and rotate
+    pub fn key_press(&mut self, key: u32) -> () {
+        self.translate(key);
+        self.rotate(key);
+    }
 
-        //let _ = mat_model
-        //    .try_inverse()
-        //    .map(|inverse_proj| mat_model = inverse_proj);
+    /// The direction this camera is being moved by the keyboard keys for a given set of key states.
+    pub fn translate(&mut self, key: u32) -> () {
+        let t = self.observer_frame();
+        let frontv = t * Vector3::z();
+        let leftv = t * Vector3::x();
+        let upv = t * Vector3::y();
 
-        // Convert -> [16]
-        let mut arr_model = [0.; 16];
-        arr_model.copy_from_slice(mat_model.as_slice());
+        let mut movement = na::zero::<Vector3<f32>>();
 
-        arr_model
+        movement += match key {
+            JS_KEY_W => frontv,
+            JS_KEY_S => -frontv,
+            JS_KEY_A => leftv,
+            JS_KEY_D => -leftv,
+            JS_KEY_R => upv,
+            JS_KEY_F => -upv,
+            _ => return,
+        };
 
-        //let mut mat_model = model.to_homogeneous();
+        if movement != Vector3::new(0.0, 0.0, 0.0) {
+            movement = movement.normalize();
+        }
 
-        //// Position
-        //let x = self.position;
-        //mat4.append_translation_mut(&Vector3::new(-x[0], -x[1], -x[2]));
+        let move_amount = movement * TS;
+        self.position[0] += move_amount[0];
+        self.position[1] += move_amount[1];
+        self.position[2] += move_amount[2];
+    }
 
-        //// Rotation
-        ////let x = self.position;
-        ////let mat4 = mat4.rotate(&Vector3::new(-x[0], -x[1], -x[2]));
-
-        //// Convert -> [16]
-        //let mut mat_model = [0.; 16];
-        //mat_model.copy_from_slice(mat4.as_slice());
-
-        //mat_model
+    /// Rotate camera view
+    pub fn rotate(&mut self, key: u32) -> () {
+        self.pitch += match key {
+            JS_KEY_DOWN => -RS,
+            JS_KEY_UP => RS,
+            _ => 0.0,
+        };
+        self.yaw += match key {
+            JS_KEY_LEFT => -RS,
+            JS_KEY_RIGHT => RS,
+            _ => 0.0,
+        };
     }
 
     /// The point the camera is looking at.
     pub fn at(&self) -> Point3<f32> {
         let x = self.position;
-        let (pitch, yaw) = (self.target[0], self.target[1]);
+        let (pitch, yaw) = (self.pitch, self.yaw);
 
         web_sys::console::log_1(&(&*format!("Isometry {:?} | {:?}", pitch, yaw) as &str).into());
-        let view_eye = self.rotation_to_y_up * Point3::new(x[0], x[1], x[2]); //self.eye;
+        let view_eye = *ROTATION_TO_Y_UP * Point3::new(x[0], x[1], x[2]); //self.eye;
         let ax = view_eye.x + yaw.cos() * pitch.sin();
         let ay = view_eye.y + pitch.cos();
         let az = view_eye.z + yaw.sin() * pitch.sin();
-        self.rotation_to_y_up.inverse() * Point3::new(ax, ay, az)
+        ROTATION_TO_Y_UP.inverse() * Point3::new(ax, ay, az)
     }
 
-
-    /// Copy to keep me immutable
-    pub fn get_keys_down(&self) -> HashSet<u32> {
-        self.keys_down.clone()
-    }
 
     /// Retuns the uProjectionMatrix for uniform_matrix4fv_with_f32_array
     pub fn project(&self) -> &[f32] {
         self.projection.as_matrix().as_slice()
     }
 
+    /// Get eye as point3
+    pub fn eye(&self) -> Point3<f32> {
+        let x = self.position;
+        Point3::new(x[0], x[1], x[2])
+    }
+
     /// Get the view matrix -> Self position rotation
     pub fn view(&self) -> Isometry3<f32> {
-        let x = self.position;
-        let y = self.target;
-        let eye = Point3::new(x[0], x[1], x[2]);
-        let target = Point3::new(y[0], y[1], y[2]);
+        Isometry3::look_at_rh(&self.eye(), &self.at(), &Vector3::y())
+    }
 
-        //web_sys::console::log_1(&(&*format!("Eye {:?}", eye) as &str).into());
-        //web_sys::console::log_1(&(&*format!("At {:?}", target) as &str).into());
-        //let iso = Isometry3::look_at_rh(&eye, &self.at(), &Vector3::y());
-        let att = self.at();
-        // Got: [0.0, 1.0, -6.0] 
-        // want: [-0.21248557, -0.3540449, -5.28923]
-        let iso = Isometry3::look_at_rh(&eye, &att, &Vector3::y());
-        web_sys::console::log_1(&(&*format!("Isometry {:?}", att) as &str).into());
-        //web_sys::console::log_1(&(&*format!("Isometry {:?}", iso) as &str).into());
-        iso
+    /// The camera observer local frame.
+    fn observer_frame(&self) -> Isometry3<f32> {
+        Isometry3::face_towards(&self.eye(), &self.at(), &Vector3::y()) //&self.coord_system.up_axis)
     }
 }
