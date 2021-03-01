@@ -22,10 +22,10 @@ use nalgebra::{ Isometry3, Vector3 };
 use crate::util::*;
 use crate::util_gl::*;
 
-use std::sync::Arc;
+//use std::sync::Arc;
 //use std::sync::Mutex;
 
-use super::constants::*;
+//use super::constants::*;
 //use crate::camera::*;
 
 /// From: https://github.com/rustwasm/wasm-bindgen/blob/master/examples/request-animation-frame/src/lib.rs
@@ -150,12 +150,10 @@ pub fn attach_handlers(canvas: &HtmlCanvasElement, game: Rc<GameGl>) -> Result<(
         input(2, event.client_x() as f32, event.client_y() as f32);
     }).expect("Adding mouseup");
 
-    { let game = Rc::clone(&game);
+    { //let game = Rc::clone(&game);
     add_handler("wheel", canvas, move |event: WheelEvent| {
         event.prevent_default();
         let zoom_amount: f32 = event.delta_y() as f32 / 50.;
-        let mut gl_context = game.store.borrow_mut();
-        gl_context.camera.forward(zoom_amount);
         input(3, zoom_amount, 0.);
     }).expect("Adding wheel");
     }
@@ -296,16 +294,9 @@ pub fn draw_scene(ctx: &GlContext) -> Result<(), JsValue> {
 
     // Set the drawing position to the "identity" point, which is
     // the center of the scene.
-    let mut model = Isometry3::new(
-        // Translate
-        Vector3::new(-0.0, 0.0, -6.0),
-        // Rotate
-        Vector3::new(0.2, 0.7, 0.3).scale(read_state.cube_rotation),
-    );
-    let view = ctx.camera.view();
-    model *= view;
-    let model4 = model.to_homogeneous();
-    let mat_model = model4.as_slice();
+    
+    let mat_model = ctx.camera.update_model();
+    let model = ctx.camera.get_model();
 
     // Fill normal buffer
     let mut norm = model.clone();

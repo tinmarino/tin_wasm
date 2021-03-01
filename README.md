@@ -1,7 +1,7 @@
 # Rust Wasm playground (using bindgen, web_sys)
 
 ```bash
-wasm-pack build --target web
+wasm-pack build --debug --target web
 python -m http.server
 ```
 
