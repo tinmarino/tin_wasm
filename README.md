@@ -1,28 +1,39 @@
 # Rust Wasm playground (using bindgen, web_sys)
 
+## Install and Run
 ```bash
-wasm-pack build --debug --target web
-python -m http.server
-```
-
-```bash
+# Fetch <- internet
 git clone https://github.com/tinmarino/tin_wasm.git && cd tin_wasm.git
+
+# Build -> pkg
+wasm-pack build --debug --target web
+
+# Run index.html
+python -m http.server
+firefox http://0.0.0.0:8000/
 ```
 
-# References:
+## "Play"
 
-* Javascript: https://developer.mozilla.org/en-US/docs/Web/API/WebGL_API/Tutorial
-* Bindgen structures: https://rustwasm.github.io/wasm-bindgen/examples/webgl.html
+* __translate__: wasd (and rf)
+* __rotate__: arrow keys
 
-# dump
-// the trait bound `T: FromWasmAbi` is not satisfied: the trait `FromWasmAbi` is not implemented for `T`
-// the parameter type `impl FnMut(T)` may not live long enough: ...so that the type `impl FnMut(T)` will meet its required lifetime bounds
-// expected a `Fn<(T,)>` closure, found `impl FnMut(T) + 'static`: expected an `Fn<(T,)>` closure, found `impl FnMut(T) + 'static`
+![Screenshot image not found](res/screenshot_1.png "Demo")
 
-# TODO
+## Dev
 
-* Vim, better rust support (fold, jump, doc, completion with keystrokes)
-* Create my constans.rs with PI and keystrokes
-* Create other HelloWorld Project with hardcoded matrix where possible
-* Move view <- webgl water
-* Landon, fix meshiewer
+```
+├── index.html            <- 1
+├── src/
+    ├── lib.rs            <- 2
+    ├── game.rs           <- 3
+    ├── camera.rs         <- 5
+    ├── util.rs           <- 4
+    ├── constants.rs
+
+├── Cargo.toml
+├── README.md
+├── res/
+├── pkg/
+├── target/
+```

@@ -118,11 +118,11 @@ impl Camera {
         let x = self.position;
         let (pitch, yaw) = (self.pitch, self.yaw);
 
-        web_sys::console::log_1(&(&*format!("Isometry {:?} | {:?}", pitch, yaw) as &str).into());
         let view_eye = *ROTATION_TO_Y_UP * Point3::new(x[0], x[1], x[2]); //self.eye;
         let ax = view_eye.x + yaw.cos() * pitch.sin();
         let ay = view_eye.y + pitch.cos();
         let az = view_eye.z + yaw.sin() * pitch.sin();
+
         ROTATION_TO_Y_UP.inverse() * Point3::new(ax, ay, az)
     }
 

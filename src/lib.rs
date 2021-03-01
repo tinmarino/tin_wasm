@@ -8,7 +8,6 @@ use web_sys::console;
 extern crate lazy_static;
 
 mod util;
-mod util_gl;
 mod game;
 mod camera;
 mod constants;

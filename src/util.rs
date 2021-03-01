@@ -52,6 +52,15 @@ pub fn add_handler<T>(
 }
 
 
+/// From: https://github.com/rustwasm/wasm-bindgen/blob/master/examples/request-animation-frame/src/lib.rs
+pub fn request_animation_frame(f: &Closure<dyn FnMut()>) {
+    web_sys::window()
+        .expect("no global `window` exists")
+        .request_animation_frame(f.as_ref().unchecked_ref())
+        .expect("should register `requestAnimationFrame` OK");
+}
+
+
 /// Just a single container to keep our arrays
 pub struct Buffers {
     pub position: WebGlBuffer,
