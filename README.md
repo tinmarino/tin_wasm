@@ -5,6 +5,9 @@
 # Fetch <- internet
 git clone https://github.com/tinmarino/tin_wasm.git && cd tin_wasm.git
 
+# Install wasm pack
+cargo install cargo-wasm
+
 # Build -> pkg
 wasm-pack build --debug --target web
 
