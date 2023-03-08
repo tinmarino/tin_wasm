@@ -1,0 +1,15 @@
+{
+  "name": "tin_wasm",
+  "collaborators": [
+    "Tinmarino"
+  ],
+  "version": "0.2.0",
+  "files": [
+    "tin_wasm_bg.wasm",
+    "tin_wasm.js",
+    "tin_wasm.d.ts"
+  ],
+  "module": "tin_wasm.js",
+  "types": "tin_wasm.d.ts",
+  "sideEffects": false
+}
